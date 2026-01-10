@@ -1,5 +1,5 @@
 /**
- * Boids Interactive Demo - Full Version
+ * Boids Interactive Demo - Enhanced Visuals
  */
 
 import { useState, useRef, useCallback } from 'react';
@@ -42,11 +42,16 @@ const PRESETS = [
   { value: 'swarm_defense', label: 'Swarm Defense' },
 ];
 
+// Store trails for each boid
+const trailsMap = new Map<number, {x: number, y: number}[]>();
+const TRAIL_LENGTH = 8;
+
 function App() {
   const [status, setStatus] = useState('disconnected');
   const [frameData, setFrameData] = useState<FrameData | null>(null);
   const [params, setParams] = useState<Params | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [showTrails, setShowTrails] = useState(true);
   const wsRef = useRef<WebSocket | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -58,6 +63,7 @@ function App() {
 
   const connect = () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    trailsMap.clear();
 
     setStatus('connecting');
     const ws = new WebSocket(WS_URL);
@@ -90,55 +96,202 @@ function App() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.fillStyle = '#1a1a2e';
+    // Sky gradient background
+    const gradient = ctx.createLinearGradient(0, 0, 0, 600);
+    gradient.addColorStop(0, '#0a0a1a');
+    gradient.addColorStop(0.5, '#1a1a3e');
+    gradient.addColorStop(1, '#2a1a2e');
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 800, 600);
 
-    // Draw boids as triangles
-    ctx.fillStyle = '#4ecdc4';
-    ctx.strokeStyle = '#45b7aa';
+    // Update trails
+    data.boids.forEach((boid, i) => {
+      const [x, y] = boid;
+      if (!trailsMap.has(i)) {
+        trailsMap.set(i, []);
+      }
+      const trail = trailsMap.get(i)!;
+      trail.push({ x, y });
+      if (trail.length > TRAIL_LENGTH) {
+        trail.shift();
+      }
+    });
+
+    // Draw trails
+    if (showTrails) {
+      data.boids.forEach((boid, i) => {
+        const trail = trailsMap.get(i);
+        if (trail && trail.length > 1) {
+          drawTrail(ctx, trail, boid);
+        }
+      });
+    }
+
+    // Draw predator danger zone
+    if (data.predator) {
+      drawPredatorAura(ctx, data.predator);
+    }
+
+    // Draw boids
     data.boids.forEach((boid) => {
-      const [x, y, vx, vy] = boid;
-      const angle = Math.atan2(vy, vx);
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle);
-      ctx.beginPath();
-      ctx.moveTo(8, 0);
-      ctx.lineTo(-5, 4);
-      ctx.lineTo(-5, -4);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
+      drawBird(ctx, boid, data.predator);
     });
 
     // Draw predator
     if (data.predator) {
-      const [x, y, vx, vy] = data.predator;
-      const angle = Math.atan2(vy, vx);
-      ctx.fillStyle = '#ff6b6b';
-      ctx.strokeStyle = '#ee5a5a';
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle);
-      ctx.beginPath();
-      ctx.moveTo(14, 0);
-      ctx.lineTo(-8, 7);
-      ctx.lineTo(-8, -7);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
+      drawPredator(ctx, data.predator);
     }
 
     // Draw stats
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(8, 8, 140, 50);
+    drawStats(ctx, data);
+  };
+
+  const drawTrail = (ctx: CanvasRenderingContext2D, trail: {x: number, y: number}[], boid: number[]) => {
+    const [, , vx, vy] = boid;
+    const speed = Math.sqrt(vx * vx + vy * vy);
+    const normalizedSpeed = Math.min(speed / 4, 1);
+
+    ctx.beginPath();
+    ctx.moveTo(trail[0].x, trail[0].y);
+    
+    for (let i = 1; i < trail.length; i++) {
+      ctx.lineTo(trail[i].x, trail[i].y);
+    }
+
+    ctx.strokeStyle = `rgba(78, 205, 196, ${0.1 + normalizedSpeed * 0.2})`;
+    ctx.lineWidth = 1 + normalizedSpeed;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  };
+
+  const drawBird = (ctx: CanvasRenderingContext2D, boid: number[], predator: number[] | null) => {
+    const [x, y, vx, vy] = boid;
+    const angle = Math.atan2(vy, vx);
+    const speed = Math.sqrt(vx * vx + vy * vy);
+    const normalizedSpeed = Math.min(speed / 4, 1);
+
+    // Check distance to predator for fear coloring
+    let fear = 0;
+    if (predator) {
+      const dx = x - predator[0];
+      const dy = y - predator[1];
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      fear = Math.max(0, 1 - dist / 150);
+    }
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    // Glow effect for fast boids
+    if (normalizedSpeed > 0.5) {
+      ctx.shadowColor = '#4ecdc4';
+      ctx.shadowBlur = 5 + normalizedSpeed * 10;
+    }
+
+    // Bird body - teardrop shape
+    ctx.beginPath();
+    ctx.moveTo(10, 0);
+    ctx.bezierCurveTo(6, -3, -4, -4, -6, 0);
+    ctx.bezierCurveTo(-4, 4, 6, 3, 10, 0);
+    ctx.closePath();
+
+    // Color based on speed and fear
+    const r = Math.floor(78 + fear * 150 + normalizedSpeed * 30);
+    const g = Math.floor(205 - fear * 100);
+    const b = Math.floor(196 - fear * 100);
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.fill();
+
+    // Wing hints
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-3, -5 - normalizedSpeed * 2);
+    ctx.lineTo(-5, 0);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-3, 5 + normalizedSpeed * 2);
+    ctx.lineTo(-5, 0);
+    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.6)`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.restore();
+  };
+
+  const drawPredatorAura = (ctx: CanvasRenderingContext2D, predator: number[]) => {
+    const [x, y] = predator;
+    
+    // Danger zone gradient
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, 150);
+    gradient.addColorStop(0, 'rgba(255, 80, 80, 0.15)');
+    gradient.addColorStop(0.5, 'rgba(255, 80, 80, 0.05)');
+    gradient.addColorStop(1, 'rgba(255, 80, 80, 0)');
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, 150, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const drawPredator = (ctx: CanvasRenderingContext2D, predator: number[]) => {
+    const [x, y, vx, vy] = predator;
+    const angle = Math.atan2(vy, vx);
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    // Glow
+    ctx.shadowColor = '#ff4444';
+    ctx.shadowBlur = 20;
+
+    // Hawk-like shape
+    ctx.beginPath();
+    // Body
+    ctx.moveTo(18, 0);
+    ctx.bezierCurveTo(12, -5, -8, -6, -12, 0);
+    ctx.bezierCurveTo(-8, 6, 12, 5, 18, 0);
+    ctx.closePath();
+    ctx.fillStyle = '#ff6b6b';
+    ctx.fill();
+
+    // Wings - swept back
+    ctx.beginPath();
+    ctx.moveTo(2, 0);
+    ctx.lineTo(-8, -14);
+    ctx.lineTo(-12, -8);
+    ctx.lineTo(-4, 0);
+    ctx.lineTo(-12, 8);
+    ctx.lineTo(-8, 14);
+    ctx.lineTo(2, 0);
+    ctx.closePath();
+    ctx.fillStyle = '#ee5555';
+    ctx.fill();
+
+    // Eye
+    ctx.beginPath();
+    ctx.arc(8, -2, 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffff00';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(8, -2, 1, 0, Math.PI * 2);
+    ctx.fillStyle = '#000';
+    ctx.fill();
+
+    ctx.restore();
+  };
+
+  const drawStats = (ctx: CanvasRenderingContext2D, data: FrameData) => {
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.roundRect(10, 10, 130, 60, 8);
+    ctx.fill();
+    
     ctx.fillStyle = '#fff';
     ctx.font = '12px monospace';
-    ctx.fillText(`Frame: ${data.frame_id}`, 16, 24);
-    ctx.fillText(`Boids: ${data.boids.length}`, 16, 40);
-    ctx.fillText(`FPS: ${data.metrics.fps}`, 16, 56);
+    ctx.fillText(`Frame: ${data.frame_id}`, 20, 28);
+    ctx.fillText(`Boids: ${data.boids.length}`, 20, 44);
+    ctx.fillText(`FPS: ${data.metrics.fps.toFixed(1)}`, 20, 60);
   };
 
   const updateParam = (key: string, value: number | boolean) => {
@@ -148,7 +301,8 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>Boids Interactive Demo</h1>
+        <h1>🐦 Boids Interactive Demo</h1>
+        <p>Flocking simulation with predator-prey dynamics</p>
       </header>
 
       <main className="main">
@@ -180,14 +334,29 @@ function App() {
                   <button onClick={() => { sendMessage({ type: isPaused ? 'resume' : 'pause' }); setIsPaused(!isPaused); }}>
                     {isPaused ? '▶ Resume' : '⏸ Pause'}
                   </button>
-                  <button onClick={() => sendMessage({ type: 'reset' })}>↻ Reset</button>
+                  <button onClick={() => { sendMessage({ type: 'reset' }); trailsMap.clear(); }}>
+                    ↻ Reset
+                  </button>
                 </div>
+              </section>
+
+              {/* Visual Options */}
+              <section className="section">
+                <h3>Visuals</h3>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={showTrails}
+                    onChange={(e) => setShowTrails(e.target.checked)}
+                  />
+                  Show Motion Trails
+                </label>
               </section>
 
               {/* Presets */}
               <section className="section">
                 <h3>Presets</h3>
-                <select onChange={(e) => sendMessage({ type: 'preset', name: e.target.value })} defaultValue="">
+                <select onChange={(e) => { sendMessage({ type: 'preset', name: e.target.value }); trailsMap.clear(); }} defaultValue="">
                   <option value="" disabled>Select preset...</option>
                   {PRESETS.map((p) => (
                     <option key={p.value} value={p.value}>{p.label}</option>
@@ -198,10 +367,10 @@ function App() {
               {/* Parameters */}
               {params && (
                 <section className="section">
-                  <h3>Parameters</h3>
+                  <h3>Flock Behavior</h3>
                   
                   <Slider label="Boids" value={params.num_boids} min={1} max={200} step={1}
-                    onChange={(v) => updateParam('num_boids', v)} />
+                    onChange={(v) => { updateParam('num_boids', v); trailsMap.clear(); }} />
                   
                   <Slider label="Visual Range" value={params.visual_range} min={10} max={150} step={5}
                     onChange={(v) => updateParam('visual_range', v)} />
@@ -223,7 +392,7 @@ function App() {
               {/* Predator */}
               {params && (
                 <section className="section">
-                  <h3>Predator</h3>
+                  <h3>🦅 Predator</h3>
                   <label className="checkbox">
                     <input
                       type="checkbox"
@@ -235,9 +404,9 @@ function App() {
                   
                   {params.predator_enabled && (
                     <>
-                      <Slider label="Speed" value={params.predator_speed} min={0.5} max={5} step={0.1}
+                      <Slider label="Hunt Speed" value={params.predator_speed} min={0.5} max={5} step={0.1}
                         onChange={(v) => updateParam('predator_speed', v)} />
-                      <Slider label="Avoidance" value={params.predator_avoidance_strength} min={0.05} max={1.5} step={0.05}
+                      <Slider label="Flock Fear" value={params.predator_avoidance_strength} min={0.05} max={1.5} step={0.05}
                         onChange={(v) => updateParam('predator_avoidance_strength', v)} />
                     </>
                   )}
