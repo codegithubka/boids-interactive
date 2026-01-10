@@ -6,3 +6,6 @@ env/
 # Byte-compiled / Optimized / DLL files
 __pycache__/
 *.pyc
+
+# Generated from package installers
+node_modules/
