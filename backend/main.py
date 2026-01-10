@@ -5,7 +5,7 @@ Provides real-time simulation streaming and parameter control.
 """
 
 import asyncio
-import json
+import traceback
 from contextlib import asynccontextmanager
 from typing import Dict
 
@@ -52,7 +52,7 @@ app = FastAPI(
 # CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,39 +76,6 @@ async def health():
 
 
 # =============================================================================
-# WebSocket Connection Manager
-# =============================================================================
-
-class ConnectionManager:
-    """Manages WebSocket connections and their simulations."""
-
-    def __init__(self):
-        self.active_connections: Dict[WebSocket, SimulationManager] = {}
-
-    async def connect(self, websocket: WebSocket) -> SimulationManager:
-        """Accept connection and create simulation."""
-        await websocket.accept()
-        manager = SimulationManager()
-        manager.start()
-        self.active_connections[websocket] = manager
-        return manager
-
-    def disconnect(self, websocket: WebSocket) -> None:
-        """Remove connection and stop simulation."""
-        if websocket in self.active_connections:
-            manager = self.active_connections[websocket]
-            manager.stop()
-            del self.active_connections[websocket]
-
-    def get_manager(self, websocket: WebSocket) -> SimulationManager:
-        """Get simulation manager for connection."""
-        return self.active_connections.get(websocket)
-
-
-connection_manager = ConnectionManager()
-
-
-# =============================================================================
 # Message Handlers
 # =============================================================================
 
@@ -120,7 +87,6 @@ async def handle_message(
     """Handle incoming WebSocket message."""
     msg_type = data.get("type")
     
-    # Handle preset separately to give better error messages
     if msg_type == MessageType.PRESET:
         preset_name = data.get("name", "")
         if is_valid_preset(preset_name):
@@ -136,20 +102,17 @@ async def handle_message(
     message = parse_client_message(data)
 
     if message is None:
-        # Unknown or invalid message
         error = ErrorMessage(message=f"Unknown message type: {msg_type}")
         await websocket.send_json(error.model_dump())
         return
 
     if isinstance(message, UpdateParamsMessage):
         manager.update_params(message.params)
-        # Send params sync back
         sync = ParamsSyncMessage(params=manager.get_params_dict())
         await websocket.send_json(sync.model_dump())
 
     elif isinstance(message, ResetMessage):
         manager.reset()
-        # Send params sync back
         sync = ParamsSyncMessage(params=manager.get_params_dict())
         await websocket.send_json(sync.model_dump())
 
@@ -166,45 +129,61 @@ async def handle_message(
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """
-    WebSocket endpoint for simulation streaming.
+    """WebSocket endpoint for simulation streaming."""
+    print("DEBUG: WebSocket connection attempt...")
     
-    Protocol:
-    - On connect: sends params_sync with current parameters
-    - Continuously: sends frame data at TARGET_FPS
-    - Receives: update_params, reset, preset, pause, resume messages
-    """
-    manager = await connection_manager.connect(websocket)
+    try:
+        await websocket.accept()
+        print("DEBUG: WebSocket accepted")
+    except Exception as e:
+        print(f"DEBUG: Accept failed: {e}")
+        traceback.print_exc()
+        return
+
+    try:
+        print("DEBUG: Creating SimulationManager...")
+        manager = SimulationManager()
+        manager.start()
+        print("DEBUG: SimulationManager created and started")
+    except Exception as e:
+        print(f"DEBUG: SimulationManager failed: {e}")
+        traceback.print_exc()
+        await websocket.close()
+        return
+
     frame_interval = 1.0 / TARGET_FPS
 
     try:
         # Send initial params sync
+        print("DEBUG: Sending initial params sync...")
         sync = ParamsSyncMessage(params=manager.get_params_dict())
         await websocket.send_json(sync.model_dump())
+        print("DEBUG: Initial params sync sent")
 
-        # Start frame loop
+        # Main loop
         while True:
             frame_start = asyncio.get_event_loop().time()
-
+            
             # Check for incoming messages (non-blocking)
             try:
-                # Wait for message with short timeout
                 data = await asyncio.wait_for(
                     websocket.receive_json(),
-                    timeout=0.001  # 1ms timeout
+                    timeout=0.001
                 )
                 await handle_message(websocket, manager, data)
             except asyncio.TimeoutError:
-                # No message, continue with frame
                 pass
-
+            except WebSocketDisconnect:
+                print("DEBUG: Client disconnected")
+                break
+            
             # Update simulation
             manager.update()
-
+            
             # Send frame data
             frame_data = manager.get_frame_data()
             await websocket.send_json(frame_data.model_dump())
-
+            
             # Maintain frame rate
             frame_end = asyncio.get_event_loop().time()
             elapsed = frame_end - frame_start
@@ -213,11 +192,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 await asyncio.sleep(sleep_time)
 
     except WebSocketDisconnect:
-        pass
+        print("DEBUG: WebSocket disconnected")
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        print(f"DEBUG: WebSocket error: {e}")
+        traceback.print_exc()
     finally:
-        connection_manager.disconnect(websocket)
+        manager.stop()
+        print("DEBUG: Connection closed")
 
 
 # =============================================================================
