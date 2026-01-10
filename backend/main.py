@@ -168,7 +168,7 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 data = await asyncio.wait_for(
                     websocket.receive_json(),
-                    timeout=0.001
+                    timeout=0.01
                 )
                 await handle_message(websocket, manager, data)
             except asyncio.TimeoutError:
