@@ -244,3 +244,10 @@ input[type="range"]::-moz-range-thumb {
     max-width: 500px;
   }
 }
+
+.hint {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 10px;
+  font-style: italic;
+}

@@ -5,7 +5,6 @@ Provides real-time simulation streaming and parameter control.
 """
 
 import asyncio
-import traceback
 from contextlib import asynccontextmanager
 from typing import Dict
 
@@ -76,6 +75,39 @@ async def health():
 
 
 # =============================================================================
+# WebSocket Connection Manager
+# =============================================================================
+
+class ConnectionManager:
+    """Manages WebSocket connections and their simulations."""
+
+    def __init__(self):
+        self.active_connections: Dict[WebSocket, SimulationManager] = {}
+
+    async def connect(self, websocket: WebSocket) -> SimulationManager:
+        """Accept connection and create simulation."""
+        await websocket.accept()
+        manager = SimulationManager()
+        manager.start()
+        self.active_connections[websocket] = manager
+        return manager
+
+    def disconnect(self, websocket: WebSocket) -> None:
+        """Remove connection and stop simulation."""
+        if websocket in self.active_connections:
+            manager = self.active_connections[websocket]
+            manager.stop()
+            del self.active_connections[websocket]
+
+    def get_manager(self, websocket: WebSocket) -> SimulationManager:
+        """Get simulation manager for connection."""
+        return self.active_connections.get(websocket)
+
+
+connection_manager = ConnectionManager()
+
+
+# =============================================================================
 # Message Handlers
 # =============================================================================
 
@@ -87,6 +119,11 @@ async def handle_message(
     """Handle incoming WebSocket message."""
     msg_type = data.get("type")
     
+    # Handle obstacle messages first
+    if await handle_obstacle_message(websocket, manager, data):
+        return
+    
+    # Handle preset separately to give better error messages
     if msg_type == MessageType.PRESET:
         preset_name = data.get("name", "")
         if is_valid_preset(preset_name):
@@ -123,82 +160,123 @@ async def handle_message(
         manager.resume()
 
 
+async def handle_obstacle_message(
+    websocket: WebSocket,
+    manager: SimulationManager,
+    data: dict
+) -> bool:
+    """
+    Handle obstacle-related messages.
+    
+    Returns True if message was handled, False otherwise.
+    """
+    msg_type = data.get("type")
+    
+    if msg_type == MessageType.ADD_OBSTACLE:
+        x = data.get("x", 400)
+        y = data.get("y", 300)
+        radius = data.get("radius", 30)
+        result = manager.add_obstacle(x, y, radius)
+        await websocket.send_json({
+            "type": MessageType.OBSTACLE_ADDED,
+            **result
+        })
+        return True
+    
+    elif msg_type == MessageType.REMOVE_OBSTACLE:
+        index = data.get("index", -1)
+        success = manager.remove_obstacle(index)
+        await websocket.send_json({
+            "type": MessageType.OBSTACLE_REMOVED,
+            "index": index,
+            "success": success
+        })
+        return True
+    
+    elif msg_type == MessageType.CLEAR_OBSTACLES:
+        count = manager.clear_obstacles()
+        await websocket.send_json({
+            "type": MessageType.OBSTACLES_CLEARED,
+            "count": count
+        })
+        return True
+    
+    return False
+
+
 # =============================================================================
 # WebSocket Endpoint
 # =============================================================================
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for simulation streaming."""
-    print("DEBUG: WebSocket connection attempt...")
-    
-    try:
-        await websocket.accept()
-        print("DEBUG: WebSocket accepted")
-    except Exception as e:
-        print(f"DEBUG: Accept failed: {e}")
-        traceback.print_exc()
-        return
-
-    try:
-        print("DEBUG: Creating SimulationManager...")
-        manager = SimulationManager()
-        manager.start()
-        print("DEBUG: SimulationManager created and started")
-    except Exception as e:
-        print(f"DEBUG: SimulationManager failed: {e}")
-        traceback.print_exc()
-        await websocket.close()
-        return
-
+    """
+    WebSocket endpoint for simulation streaming.
+    """
+    manager = await connection_manager.connect(websocket)
     frame_interval = 1.0 / TARGET_FPS
+    running = True
+
+    async def send_frames():
+        """Continuously send frame data."""
+        nonlocal running
+        try:
+            while running:
+                frame_start = asyncio.get_event_loop().time()
+                manager.update()
+                frame_data = manager.get_frame_data()
+                await websocket.send_json(frame_data.model_dump())
+                
+                frame_end = asyncio.get_event_loop().time()
+                elapsed = frame_end - frame_start
+                sleep_time = frame_interval - elapsed
+                if sleep_time > 0:
+                    await asyncio.sleep(sleep_time)
+        except Exception as e:
+            print(f"Send frames error: {e}")
+            running = False
+
+    async def receive_messages():
+        """Receive and handle client messages."""
+        nonlocal running
+        try:
+            while running:
+                data = await websocket.receive_json()
+                await handle_message(websocket, manager, data)
+        except WebSocketDisconnect:
+            running = False
+        except Exception as e:
+            print(f"Receive messages error: {e}")
+            running = False
 
     try:
         # Send initial params sync
-        print("DEBUG: Sending initial params sync...")
         sync = ParamsSyncMessage(params=manager.get_params_dict())
         await websocket.send_json(sync.model_dump())
-        print("DEBUG: Initial params sync sent")
 
-        # Main loop
-        while True:
-            frame_start = asyncio.get_event_loop().time()
-            
-            # Check for incoming messages (non-blocking)
+        # Run send and receive concurrently
+        send_task = asyncio.create_task(send_frames())
+        receive_task = asyncio.create_task(receive_messages())
+        
+        done, pending = await asyncio.wait(
+            [send_task, receive_task],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+        
+        running = False
+        for task in pending:
+            task.cancel()
             try:
-                data = await asyncio.wait_for(
-                    websocket.receive_json(),
-                    timeout=0.01
-                )
-                await handle_message(websocket, manager, data)
-            except asyncio.TimeoutError:
+                await task
+            except asyncio.CancelledError:
                 pass
-            except WebSocketDisconnect:
-                print("DEBUG: Client disconnected")
-                break
-            
-            # Update simulation
-            manager.update()
-            
-            # Send frame data
-            frame_data = manager.get_frame_data()
-            await websocket.send_json(frame_data.model_dump())
-            
-            # Maintain frame rate
-            frame_end = asyncio.get_event_loop().time()
-            elapsed = frame_end - frame_start
-            sleep_time = frame_interval - elapsed
-            if sleep_time > 0:
-                await asyncio.sleep(sleep_time)
 
     except WebSocketDisconnect:
-        print("DEBUG: WebSocket disconnected")
+        pass
     except Exception as e:
-        print(f"DEBUG: WebSocket error: {e}")
-        traceback.print_exc()
+        print(f"WebSocket error: {e}")
     finally:
-        manager.stop()
-        print("DEBUG: Connection closed")
+        connection_manager.disconnect(websocket)
 
 
 # =============================================================================

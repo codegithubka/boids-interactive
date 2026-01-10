@@ -227,7 +227,7 @@ class SimulationManager:
         Get current frame data for sending to client.
         
         Returns:
-            FrameData with boids, predator, and metrics
+            FrameData with boids, predator, obstacles, and metrics
         """
         # Serialize boids: [[x, y, vx, vy], ...]
         boids_data = [
@@ -240,6 +240,12 @@ class SimulationManager:
         if self._flock.predator is not None:
             p = self._flock.predator
             predator_data = [p.x, p.y, p.vx, p.vy]
+        
+        # Serialize obstacles
+        obstacles_data = [
+            [obs.x, obs.y, obs.radius]
+            for obs in self._flock.obstacles
+        ]
         
         # Compute metrics if predator is active
         metrics = None
@@ -267,6 +273,7 @@ class SimulationManager:
             frame_id=self._frame_id,
             boids=boids_data,
             predator=predator_data,
+            obstacles=obstacles_data,
             metrics=metrics
         )
 
@@ -293,3 +300,66 @@ class SimulationManager:
     def fps(self) -> float:
         """Current frames per second."""
         return self._fps
+
+    # =========================================================================
+    # Obstacle Management
+    # =========================================================================
+
+    def add_obstacle(self, x: float, y: float, radius: float = 30.0) -> Dict[str, Any]:
+        """
+        Add an obstacle to the simulation.
+        
+        Args:
+            x: X position (center)
+            y: Y position (center)
+            radius: Obstacle radius
+            
+        Returns:
+            Dictionary with obstacle data and index
+        """
+        obstacle = self._flock.add_obstacle(x, y, radius)
+        index = len(self._flock.obstacles) - 1
+        return {
+            'index': index,
+            'x': obstacle.x,
+            'y': obstacle.y,
+            'radius': obstacle.radius
+        }
+
+    def remove_obstacle(self, index: int) -> bool:
+        """
+        Remove an obstacle by index.
+        
+        Args:
+            index: Index of obstacle to remove
+            
+        Returns:
+            True if removed, False if invalid index
+        """
+        return self._flock.remove_obstacle(index)
+
+    def clear_obstacles(self) -> int:
+        """
+        Remove all obstacles.
+        
+        Returns:
+            Number of obstacles removed
+        """
+        return self._flock.clear_obstacles()
+
+    def get_obstacles(self) -> List[Dict[str, Any]]:
+        """
+        Get all obstacles.
+        
+        Returns:
+            List of obstacle dictionaries
+        """
+        return [
+            {'x': obs.x, 'y': obs.y, 'radius': obs.radius}
+            for obs in self._flock.obstacles
+        ]
+
+    @property
+    def num_obstacles(self) -> int:
+        """Current number of obstacles."""
+        return len(self._flock.obstacles)

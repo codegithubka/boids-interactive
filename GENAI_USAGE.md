@@ -19,12 +19,18 @@ This document tracks the development of an interactive web-based Boids simulatio
 | 5 | simulation_manager.py | ✅ Complete | 33 |
 | 6 | presets.py | ✅ Complete | 22 |
 | 7 | main.py (WebSocket) | ✅ Complete | 15 |
-| 8 | Frontend setup | ✅ Complete | — |
+| 8 | Frontend setup (initial) | ⚠️ Issue | — |
+| 9 | WebSocket debugging | ✅ Resolved | — |
+| 10 | Enhanced visuals | ✅ Complete | — |
+| **Optional Enhancements** | | | |
+| 11 | Static Obstacles | ✅ Complete | 34 |
+| 12 | Multiple Predators | ⏳ Planned | — |
+| 13 | Performance Optimization | ⏳ Planned | — |
 
-**Total Backend Tests**: 141 passing
-**Backend Status**: ✅ Complete
-**Frontend Status**: ✅ Complete
-**Project Status**: ✅ Complete
+**Total Backend Tests**: 188 passing
+**Backend Status**: ✅ Complete + Enhancements in progress
+**Frontend Status**: ✅ Complete (simplified architecture)
+**Project Status**: 🔄 Optional Enhancements in Progress
 
 ---
 
@@ -382,47 +388,155 @@ Server starts at `http://localhost:8000`
 
 ---
 
-### Step 8: Frontend Setup
+### Step 8: Frontend Setup (Initial Attempt)
 
 **Prompt**: "Create React frontend with Vite and TypeScript for the boids interactive demo."
 
 **Actions taken**:
 - Initialized Vite + React + TypeScript project
-- Created TypeScript types
-- Created constants with parameter definitions
-- Created useSimulation WebSocket hook
-- Created SimulationCanvas component
-- Created Controls component with parameter sliders
-- Built successfully
+- Created TypeScript types, constants, hooks, and components
+- Build successful
 
-**Files created**:
+**Initial Architecture**:
+```
+src/
+├── types/index.ts          # TypeScript definitions
+├── constants/index.ts      # Parameter definitions
+├── hooks/useSimulation.ts  # WebSocket hook with useEffect cleanup
+├── components/
+│   ├── SimulationCanvas.tsx
+│   ├── Controls.tsx
+│   └── Controls.css
+├── App.tsx
+└── App.css
+```
+
+**Status**: ⚠️ Build successful, but runtime issue encountered
+
+---
+
+### Step 9: WebSocket Connection Issue — Debugging & Resolution
+
+**Issue Encountered**: WebSocket connection opened but immediately closed
+
+**Symptoms**:
+- Frontend showed "Connecting..." then immediately "disconnected"
+- Backend logs showed:
+  ```
+  DEBUG: WebSocket accepted
+  DEBUG: SimulationManager created and started
+  DEBUG: Initial params sync sent
+  INFO:  connection closed
+  DEBUG: Client disconnected
+  ```
+- Connection opened, params_sync sent, then instant disconnect
+
+**Debugging Process**:
+
+1. **Added debug logging to backend** (`main.py`)
+   - Confirmed server was working correctly
+   - Params sync was being sent successfully
+
+2. **Added debug logging to frontend hook** (`useSimulation.ts`)
+   - Confirmed WebSocket was being created
+   - Saw `onclose` firing immediately after `onopen`
+
+3. **Tested with standalone HTML file** (bypassing React entirely)
+   ```html
+   <!-- test-websocket.html -->
+   <script>
+     ws = new WebSocket('ws://localhost:8000/ws');
+     ws.onmessage = (e) => console.log(e.data);
+   </script>
+   ```
+   - **Result**: Worked perfectly! Frames streaming at 60 FPS
+   - **Conclusion**: Backend is fine, issue is in React frontend
+
+4. **Identified Root Cause**:
+   - The `useSimulation` hook had a `useEffect` cleanup function:
+     ```typescript
+     useEffect(() => {
+       return () => {
+         disconnect();  // <-- This was the problem
+       };
+     }, [disconnect]);
+     ```
+   - **React StrictMode** (in development) mounts, unmounts, and remounts components
+   - **Vite's Hot Module Replacement (HMR)** also triggers remounts
+   - Combined effect: WebSocket connected, then cleanup ran, disconnecting immediately
+
+**Resolution**: Simplified Architecture
+
+Instead of separate hooks/components with useEffect cleanup, consolidated into a single `App.tsx`:
+
+```typescript
+// No useEffect cleanup that disconnects
+// WebSocket ref managed directly in component
+// Connect/disconnect only on explicit user action
+const wsRef = useRef<WebSocket | null>(null);
+
+const connect = () => {
+  const ws = new WebSocket(WS_URL);
+  ws.onmessage = (e) => { /* handle */ };
+  wsRef.current = ws;
+};
+```
+
+**Files Changed**:
+| File | Change |
+|------|--------|
+| `src/main.tsx` | Removed `<StrictMode>` wrapper |
+| `src/App.tsx` | Consolidated all logic, no useEffect cleanup |
+| `src/App.css` | Simplified styles |
+| Deleted | `src/types/`, `src/constants/`, `src/hooks/`, `src/components/` |
+
+**Lesson Learned**: 
+For WebSocket connections in React development:
+- Avoid `useEffect` cleanup that disconnects during HMR
+- Or use refs and explicit connect/disconnect buttons
+- Test with standalone HTML first to isolate React-specific issues
+
+**Status**: ✅ Resolved — WebSocket connection stable
+
+---
+
+### Step 10: Enhanced Visuals
+
+**Prompt**: "Improve the visuals of the demo with more realistic bird shapes, trails, and effects."
+
+**Actions taken**:
+- Added motion trails for each boid
+- Implemented velocity-based coloring (faster = brighter)
+- Added fear-based coloring (boids near predator turn reddish)
+- Created teardrop bird shape with wing hints
+- Added glow effects for fast-moving boids
+- Created hawk-like predator with swept wings and eye
+- Added predator danger zone (red radial gradient)
+- Implemented sky gradient background
+- Added "Show Motion Trails" toggle
+- Polished UI with glassmorphism, gradients, and shadows
+
+**Visual Features Added**:
+| Feature | Description |
+|---------|-------------|
+| 🌌 Sky gradient | Deep space-like gradient background |
+| ✨ Motion trails | Boids leave fading trails showing path |
+| 🎨 Speed coloring | Faster boids glow brighter cyan |
+| 😨 Fear coloring | Boids turn red when near predator |
+| 🐦 Bird shape | Teardrop body with animated wing hints |
+| 💡 Glow effects | Fast boids have subtle bloom |
+| 🔴 Danger zone | Red gradient showing predator range |
+| 🦅 Hawk predator | Swept wings, body, yellow eye |
+| 🎛️ Trails toggle | UI control to enable/disable trails |
+| 💅 Polished UI | Glassmorphism, gradient buttons |
+
+**Final Files**:
 | File | Lines | Description |
 |------|-------|-------------|
-| `src/types/index.ts` | 95 | TypeScript type definitions |
-| `src/constants/index.ts` | 140 | Parameter definitions, constants |
-| `src/hooks/useSimulation.ts` | 115 | WebSocket connection hook |
-| `src/components/SimulationCanvas.tsx` | 115 | Canvas rendering component |
-| `src/components/Controls.tsx` | 180 | Parameter controls UI |
-| `src/components/Controls.css` | 175 | Controls styling |
-| `src/App.tsx` | 62 | Main application layout |
-| `src/App.css` | 95 | Layout styles |
-
-**Key components**:
-| Component | Purpose |
-|-----------|---------|
-| `useSimulation` | WebSocket connection, state management |
-| `SimulationCanvas` | Renders boids as triangles on canvas |
-| `Controls` | Parameter sliders, presets, playback |
-
-**Features**:
-- Real-time WebSocket connection to backend
-- Canvas rendering at 60 FPS
-- Parameter sliders with live updates
-- Preset selection
-- Pause/resume controls
-- Responsive layout
-
-**Build**: ✅ Success
+| `src/App.tsx` | ~350 | All-in-one component with enhanced rendering |
+| `src/App.css` | ~180 | Polished styles with gradients |
+| `src/main.tsx` | 6 | Minimal entry point (no StrictMode) |
+| `src/index.css` | 15 | Global styles |
 
 **Status**: ✅ Complete
 
@@ -431,6 +545,17 @@ Server starts at `http://localhost:8000`
 ## Project Complete! 🎉
 
 All steps completed successfully.
+
+---
+
+## Issues Encountered & Resolutions
+
+| Issue | Cause | Resolution |
+|-------|-------|------------|
+| TypeScript `erasableSyntaxOnly` error | Vite template used TS 5.8+ options | Removed newer options from tsconfig |
+| `ModuleNotFoundError: No module named 'boid'` | Missing relative imports in boids package | Changed `from boid import` to `from .boid import` |
+| WebSocket immediately disconnects | React StrictMode + useEffect cleanup | Removed StrictMode, simplified to single component |
+| HMR causing reconnects | Vite hot reload triggering cleanup | Explicit connect/disconnect without useEffect |
 
 ---
 
@@ -452,6 +577,7 @@ All steps completed successfully.
 | File | Status | Tests | Description |
 |------|--------|-------|-------------|
 | `boids/__init__.py` | ✅ | — | Package exports |
+| `boids/obstacle.py` | ✅ | 21 | Obstacle class and avoidance |
 | `requirements.txt` | ✅ | — | Dependencies |
 | `config.py` | ✅ | 35 | Parameter limits, constants |
 | `models.py` | ✅ | 36 | Pydantic validation models |
@@ -464,8 +590,337 @@ All steps completed successfully.
 | `tests/test_simulation.py` | ✅ | 33 | Simulation tests |
 | `tests/test_presets.py` | ✅ | 22 | Presets tests |
 | `tests/test_websocket.py` | ✅ | 15 | WebSocket tests |
+| `tests/test_obstacle.py` | ✅ | 21 | Obstacle tests |
+| `tests/test_flock_obstacles.py` | ✅ | 13 | Flock obstacle integration tests |
+
+### Frontend (Complete ✅ — Simplified Architecture)
+
+| File | Status | Description |
+|------|--------|-------------|
+| `package.json` | ✅ | Dependencies |
+| `tsconfig.json` | ✅ | TypeScript config |
+| `tsconfig.app.json` | ✅ | TypeScript app config (fixed) |
+| `tsconfig.node.json` | ✅ | TypeScript node config (fixed) |
+| `vite.config.ts` | ✅ | Vite configuration |
+| `index.html` | ✅ | Entry HTML |
+| `src/main.tsx` | ✅ | React entry (no StrictMode) |
+| `src/App.tsx` | ✅ | All-in-one component with enhanced visuals |
+| `src/App.css` | ✅ | Polished styles |
+| `src/index.css` | ✅ | Global styles |
+
+### Debugging Artifacts
+
+| File | Purpose |
+|------|---------|
+| `test-websocket.html` | Standalone WebSocket test (bypasses React) |
 
 ---
 
-*Document Version: 1.0*
+## Optional Enhancements
+
+These enhancements extend the core simulation with additional features as suggested in the assignment.
+
+### Enhancement Overview
+
+| Enhancement | Description | Status |
+|-------------|-------------|--------|
+| Static Obstacles | Circular obstacles boids navigate around | 🔄 In Progress |
+| Multiple Predators | Multiple independent predators | ⏳ Planned |
+| Performance Optimization | Support thousands of boids | ⏳ Planned |
+| 3D Space | Full 3D simulation (stretch goal) | ⏳ Future |
+
+---
+
+### Step 11: Static Obstacles
+
+**Prompt**: "Formulate a clear implementation plan with the testing required and what to look out for. Then we can proceed with implementing each step"
+
+**Implementation Plan Created**:
+
+| Sub-step | Component | Description |
+|----------|-----------|-------------|
+| 1.1 | `obstacle.py` | Obstacle dataclass with avoidance logic |
+| 1.2 | `rules_optimized.py` | Integrate obstacle avoidance rule |
+| 1.3 | `simulation_manager.py` | Add/remove obstacle methods |
+| 1.4 | WebSocket messages | Add/remove/clear obstacle messages |
+| 1.5 | Frontend rendering | Draw obstacles on canvas |
+| 1.6 | Click-to-add UI | Interactive obstacle placement |
+
+**Watch-outs Identified**:
+- Performance: O(boids × obstacles) — limit obstacle count
+- Stuck boids: Need strong enough avoidance force
+- Edge cases: Obstacles at boundaries, overlapping obstacles
+- Predator interaction: Predators should also avoid obstacles
+
+---
+
+#### Step 11.1: Obstacle Data Structure
+
+**Prompt**: "Yes and remember to document in the GENAI md file as well"
+
+**Actions taken**:
+- Created `boids/obstacle.py` with `Obstacle` dataclass
+- Implemented `contains_point()`, `distance_to_point()`, `avoidance_vector()` methods
+- Created `compute_obstacle_avoidance()` function for total avoidance steering
+- Created comprehensive test suite
+- Updated `boids/__init__.py` to export new components
+
+**Files created**:
+| File | Lines | Description |
+|------|-------|-------------|
+| `boids/obstacle.py` | 105 | Obstacle class with avoidance logic |
+| `tests/test_obstacle.py` | 175 | 21 unit tests |
+
+**Key components**:
+| Component | Purpose |
+|-----------|---------|
+| `Obstacle` | Dataclass with x, y, radius |
+| `contains_point()` | Check if point inside obstacle |
+| `distance_to_point()` | Distance to obstacle surface |
+| `avoidance_vector()` | Steering vector away from obstacle |
+| `compute_obstacle_avoidance()` | Total avoidance from all obstacles |
+
+**Avoidance algorithm**:
+```
+1. For each obstacle:
+   - Calculate distance from boid to obstacle surface
+   - If inside obstacle: strong push outward
+   - If within detection_range: gradual push (stronger when closer)
+   - If outside detection_range: no effect
+2. Sum all avoidance vectors
+3. Multiply by avoidance_strength
+```
+
+**Tests**: 21/21 passing
+| Test Class | Tests |
+|------------|-------|
+| TestObstacleCreation | 2 |
+| TestContainsPoint | 3 |
+| TestDistanceToPoint | 4 |
+| TestAvoidanceVector | 5 |
+| TestComputeObstacleAvoidance | 5 |
+| TestEdgeCases | 2 |
+
+**Status**: ✅ Complete
+
+---
+
+#### Step 11.2: Integrate Obstacle Avoidance into Flock
+
+**Prompt**: Continued from Step 11.1
+
+**Actions taken**:
+- Modified `boids/flock_optimized.py` to include obstacle support
+- Added `obstacles` list attribute to `FlockOptimized`
+- Updated `update()` method to apply obstacle avoidance to all boids
+- Updated `update_predator()` to apply obstacle avoidance to predator
+- Added obstacle management methods: `add_obstacle()`, `remove_obstacle()`, `clear_obstacles()`, `get_obstacles()`
+- Created integration tests in `tests/test_flock_obstacles.py`
+
+**Files modified**:
+| File | Changes |
+|------|---------|
+| `boids/flock_optimized.py` | Added obstacle import, list, avoidance in update loops, management methods |
+| `tests/test_flock_obstacles.py` | 13 new integration tests |
+
+**Key changes to FlockOptimized**:
+```python
+# In __init__:
+self.obstacles: List[Obstacle] = []
+
+# In update():
+obstacle_dv = compute_obstacle_avoidance(
+    boid.x, boid.y,
+    self.obstacles,
+    detection_range=50.0,
+    avoidance_strength=0.5
+)
+
+# New methods:
+add_obstacle(x, y, radius) -> Obstacle
+remove_obstacle(index) -> bool
+clear_obstacles() -> int
+get_obstacles() -> List[Obstacle]
+```
+
+**Tests**: 13/13 passing
+| Test Class | Tests |
+|------------|-------|
+| TestFlockObstacleManagement | 9 |
+| TestFlockObstacleAvoidance | 3 |
+| TestPredatorObstacleAvoidance | 1 |
+
+**Status**: ✅ Complete
+
+---
+
+#### Step 11.3: Update SimulationManager
+
+**Prompt**: Continued from Step 11.2
+
+**Actions taken**:
+- Added obstacle management methods to `SimulationManager`
+- Updated `get_frame_data()` to include obstacles
+- Updated `FrameData` model to include `obstacles` field
+- Added tests for SimulationManager obstacle methods
+
+**Files modified**:
+| File | Changes |
+|------|---------|
+| `simulation_manager.py` | Added `add_obstacle()`, `remove_obstacle()`, `clear_obstacles()`, `get_obstacles()`, `num_obstacles` |
+| `models.py` | Added `obstacles` field to `FrameData` |
+| `tests/test_simulation.py` | Added 9 obstacle tests |
+
+**New SimulationManager methods**:
+```python
+add_obstacle(x, y, radius=30.0) -> Dict[str, Any]
+remove_obstacle(index) -> bool  
+clear_obstacles() -> int
+get_obstacles() -> List[Dict[str, Any]]
+num_obstacles -> int  # property
+```
+
+**Updated FrameData**:
+```python
+class FrameData(BaseModel):
+    # ... existing fields ...
+    obstacles: List[List[float]] = Field(
+        default_factory=list,
+        description="List of [x, y, radius] for each obstacle"
+    )
+```
+
+**Tests**: 9/9 passing
+| Test | Description |
+|------|-------------|
+| test_add_obstacle | Returns obstacle data with index |
+| test_add_multiple_obstacles | Multiple obstacles work |
+| test_remove_obstacle | Remove by index works |
+| test_remove_invalid_index | Invalid index returns False |
+| test_clear_obstacles | Clear all works |
+| test_get_obstacles | Returns list of dicts |
+| test_frame_data_includes_obstacles | Frame has obstacles |
+| test_frame_data_empty_obstacles | Empty list when none |
+| test_num_obstacles_property | Property works |
+
+**Status**: ✅ Complete
+
+---
+
+#### Step 11.4: WebSocket Messages for Obstacles
+
+**Prompt**: Continued from Step 11.3
+
+**Actions taken**:
+- Added obstacle message types to `config.py`
+- Created `handle_obstacle_message()` function in `main.py`
+- Added WebSocket tests for obstacle messages
+
+**Files modified**:
+| File | Changes |
+|------|---------|
+| `config.py` | Added `ADD_OBSTACLE`, `REMOVE_OBSTACLE`, `CLEAR_OBSTACLES` and response types |
+| `main.py` | Added `handle_obstacle_message()` function |
+| `tests/test_websocket.py` | Added 4 obstacle message tests |
+
+**New Message Types**:
+```python
+# Client -> Server
+ADD_OBSTACLE = "add_obstacle"      # {type, x, y, radius}
+REMOVE_OBSTACLE = "remove_obstacle" # {type, index}
+CLEAR_OBSTACLES = "clear_obstacles" # {type}
+
+# Server -> Client
+OBSTACLE_ADDED = "obstacle_added"     # {type, index, x, y, radius}
+OBSTACLE_REMOVED = "obstacle_removed" # {type, index, success}
+OBSTACLES_CLEARED = "obstacles_cleared" # {type, count}
+```
+
+**Tests**: 4/4 passing
+| Test | Description |
+|------|-------------|
+| test_add_obstacle | Add returns obstacle data |
+| test_remove_obstacle | Remove by index works |
+| test_clear_obstacles | Clear all returns count |
+| test_frame_includes_obstacles | Frame has obstacles array |
+
+**Status**: ✅ Complete
+
+---
+
+#### Step 11.5 & 11.6: Frontend Obstacle Support
+
+**Prompt**: Continued from Step 11.4
+
+**Actions taken**:
+- Added `obstacles` to FrameData interface
+- Created `drawObstacle()` function with gradient styling
+- Updated `drawFrame()` to render obstacles behind boids
+- Added canvas click handler to add obstacles
+- Added obstacle radius slider
+- Added clear obstacles button
+- Updated stats overlay to show obstacle count
+
+**Files modified**:
+| File | Changes |
+|------|---------|
+| `src/App.tsx` | Full obstacle support: rendering, click-to-add, clear |
+| `src/App.css` | Added hint text styling |
+
+**New Features**:
+| Feature | Description |
+|---------|-------------|
+| Click to add | Click anywhere on canvas to add obstacle |
+| Radius slider | Control size of new obstacles (15-60px) |
+| Clear button | Remove all obstacles |
+| Visual styling | Gradient-shaded rock-like obstacles |
+| Stats update | Obstacle count shown in overlay |
+
+**Obstacle Rendering**:
+```typescript
+const drawObstacle = (ctx, obs) => {
+  // Outer glow
+  // Main body with gradient
+  // Border stroke
+};
+```
+
+**Status**: ✅ Complete
+
+---
+
+## Quick Start
+
+### Backend
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
+# Server runs at http://localhost:8000
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+# Opens at http://localhost:5173
+```
+
+### Usage
+1. Open http://localhost:5173
+2. Click **Connect**
+3. Watch boids flock in real-time
+4. Try different **Presets** (Predator Chase is fun!)
+5. Toggle **Enable Predator**
+6. Adjust sliders to modify behavior
+7. Toggle **Show Motion Trails**
+
+---
+
+*Document Version: 3.0*
 *Last Updated: January 2026*
+*Status: Optional Enhancements in Progress*
+*Issues Resolved: WebSocket disconnection, TypeScript config compatibility*

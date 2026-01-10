@@ -312,5 +312,99 @@ class TestSimulationManagerProperties:
         assert manager2.has_predator is True
 
 
+class TestSimulationManagerObstacles:
+    """Tests for SimulationManager obstacle methods."""
+
+    def test_add_obstacle(self):
+        """Add obstacle returns obstacle data."""
+        manager = SimulationManager()
+        result = manager.add_obstacle(100, 200, radius=40)
+        
+        assert result['index'] == 0
+        assert result['x'] == 100
+        assert result['y'] == 200
+        assert result['radius'] == 40
+
+    def test_add_multiple_obstacles(self):
+        """Add multiple obstacles."""
+        manager = SimulationManager()
+        obs1 = manager.add_obstacle(100, 100)
+        obs2 = manager.add_obstacle(200, 200)
+        
+        assert obs1['index'] == 0
+        assert obs2['index'] == 1
+        assert manager.num_obstacles == 2
+
+    def test_remove_obstacle(self):
+        """Remove obstacle by index."""
+        manager = SimulationManager()
+        manager.add_obstacle(100, 100)
+        manager.add_obstacle(200, 200)
+        
+        result = manager.remove_obstacle(0)
+        
+        assert result is True
+        assert manager.num_obstacles == 1
+
+    def test_remove_invalid_index(self):
+        """Remove with invalid index returns False."""
+        manager = SimulationManager()
+        manager.add_obstacle(100, 100)
+        
+        assert manager.remove_obstacle(5) is False
+        assert manager.num_obstacles == 1
+
+    def test_clear_obstacles(self):
+        """Clear all obstacles."""
+        manager = SimulationManager()
+        manager.add_obstacle(100, 100)
+        manager.add_obstacle(200, 200)
+        manager.add_obstacle(300, 300)
+        
+        count = manager.clear_obstacles()
+        
+        assert count == 3
+        assert manager.num_obstacles == 0
+
+    def test_get_obstacles(self):
+        """Get obstacles returns list."""
+        manager = SimulationManager()
+        manager.add_obstacle(100, 100, radius=30)
+        manager.add_obstacle(200, 200, radius=40)
+        
+        obstacles = manager.get_obstacles()
+        
+        assert len(obstacles) == 2
+        assert obstacles[0]['x'] == 100
+        assert obstacles[1]['radius'] == 40
+
+    def test_frame_data_includes_obstacles(self):
+        """Frame data includes obstacles."""
+        manager = SimulationManager()
+        manager.add_obstacle(100, 100, radius=30)
+        manager.add_obstacle(200, 200, radius=40)
+        
+        frame = manager.get_frame_data()
+        
+        assert len(frame.obstacles) == 2
+        assert frame.obstacles[0] == [100, 100, 30]
+        assert frame.obstacles[1] == [200, 200, 40]
+
+    def test_frame_data_empty_obstacles(self):
+        """Frame data has empty obstacles list when none."""
+        manager = SimulationManager()
+        frame = manager.get_frame_data()
+        
+        assert frame.obstacles == []
+
+    def test_num_obstacles_property(self):
+        """num_obstacles property works."""
+        manager = SimulationManager()
+        assert manager.num_obstacles == 0
+        
+        manager.add_obstacle(100, 100)
+        assert manager.num_obstacles == 1
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

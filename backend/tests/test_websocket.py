@@ -271,5 +271,115 @@ class TestFrameData:
                     break
 
 
+# =============================================================================
+# Obstacle WebSocket Tests
+# =============================================================================
+
+class TestObstacleMessages:
+    """Tests for obstacle WebSocket messages."""
+
+    def test_add_obstacle(self, client):
+        """Add obstacle message works."""
+        with client.websocket_connect("/ws") as websocket:
+            # Skip params_sync
+            websocket.receive_json()
+            
+            # Add obstacle
+            websocket.send_json({
+                "type": "add_obstacle",
+                "x": 200,
+                "y": 300,
+                "radius": 40
+            })
+            
+            # Find response
+            for _ in range(10):
+                data = websocket.receive_json()
+                if data["type"] == "obstacle_added":
+                    assert data["x"] == 200
+                    assert data["y"] == 300
+                    assert data["radius"] == 40
+                    assert data["index"] == 0
+                    break
+
+    def test_remove_obstacle(self, client):
+        """Remove obstacle message works."""
+        with client.websocket_connect("/ws") as websocket:
+            # Skip params_sync
+            websocket.receive_json()
+            
+            # Add then remove
+            websocket.send_json({"type": "add_obstacle", "x": 100, "y": 100})
+            
+            # Wait for add response
+            for _ in range(10):
+                data = websocket.receive_json()
+                if data["type"] == "obstacle_added":
+                    break
+            
+            # Remove it
+            websocket.send_json({"type": "remove_obstacle", "index": 0})
+            
+            # Find remove response
+            for _ in range(10):
+                data = websocket.receive_json()
+                if data["type"] == "obstacle_removed":
+                    assert data["success"] is True
+                    assert data["index"] == 0
+                    break
+
+    def test_clear_obstacles(self, client):
+        """Clear obstacles message works."""
+        with client.websocket_connect("/ws") as websocket:
+            # Skip params_sync
+            websocket.receive_json()
+            
+            # Add multiple obstacles
+            for i in range(3):
+                websocket.send_json({
+                    "type": "add_obstacle",
+                    "x": 100 + i * 100,
+                    "y": 100
+                })
+            
+            # Wait a bit for adds
+            for _ in range(15):
+                data = websocket.receive_json()
+                if data["type"] == "obstacle_added" and data["index"] == 2:
+                    break
+            
+            # Clear all
+            websocket.send_json({"type": "clear_obstacles"})
+            
+            # Find clear response
+            for _ in range(10):
+                data = websocket.receive_json()
+                if data["type"] == "obstacles_cleared":
+                    assert data["count"] == 3
+                    break
+
+    def test_frame_includes_obstacles(self, client):
+        """Frame data includes obstacles after adding."""
+        with client.websocket_connect("/ws") as websocket:
+            # Skip params_sync
+            websocket.receive_json()
+            
+            # Add obstacle
+            websocket.send_json({
+                "type": "add_obstacle",
+                "x": 200,
+                "y": 200,
+                "radius": 35
+            })
+            
+            # Find frame with obstacle
+            for _ in range(20):
+                data = websocket.receive_json()
+                if data["type"] == MessageType.FRAME:
+                    if len(data.get("obstacles", [])) > 0:
+                        assert data["obstacles"][0] == [200, 200, 35]
+                        break
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

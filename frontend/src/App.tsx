@@ -1,5 +1,5 @@
 /**
- * Boids Interactive Demo - Enhanced Visuals
+ * Boids Interactive Demo - Enhanced Visuals with Obstacles
  */
 
 import { useState, useRef, useCallback } from 'react';
@@ -12,6 +12,7 @@ interface FrameData {
   frame_id: number;
   boids: number[][];
   predator: number[] | null;
+  obstacles: number[][];  // [[x, y, radius], ...]
   metrics: {
     fps: number;
     avg_distance_to_predator?: number;
@@ -52,6 +53,8 @@ function App() {
   const [params, setParams] = useState<Params | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [showTrails, setShowTrails] = useState(true);
+  const [obstacleRadius, setObstacleRadius] = useState(30);
+  const [obstacleCount, setObstacleCount] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -79,6 +82,7 @@ function App() {
       const data = JSON.parse(e.data);
       if (data.type === 'frame') {
         setFrameData(data);
+        setObstacleCount(data.obstacles?.length || 0);
         drawFrame(data);
       } else if (data.type === 'params_sync') {
         setParams(data.params);
@@ -89,6 +93,26 @@ function App() {
   };
 
   const disconnect = () => wsRef.current?.close();
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas || status !== 'connected') return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    sendMessage({
+      type: 'add_obstacle',
+      x: x,
+      y: y,
+      radius: obstacleRadius
+    });
+  };
+
+  const clearObstacles = () => {
+    sendMessage({ type: 'clear_obstacles' });
+  };
 
   const drawFrame = (data: FrameData) => {
     const canvas = canvasRef.current;
@@ -103,6 +127,13 @@ function App() {
     gradient.addColorStop(1, '#2a1a2e');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 800, 600);
+
+    // Draw obstacles first (behind everything)
+    if (data.obstacles && data.obstacles.length > 0) {
+      data.obstacles.forEach((obs) => {
+        drawObstacle(ctx, obs);
+      });
+    }
 
     // Update trails
     data.boids.forEach((boid, i) => {
@@ -144,6 +175,35 @@ function App() {
 
     // Draw stats
     drawStats(ctx, data);
+  };
+
+  const drawObstacle = (ctx: CanvasRenderingContext2D, obs: number[]) => {
+    const [x, y, radius] = obs;
+    
+    // Outer glow
+    const gradient = ctx.createRadialGradient(x, y, radius * 0.8, x, y, radius * 1.5);
+    gradient.addColorStop(0, 'rgba(60, 60, 80, 0.8)');
+    gradient.addColorStop(0.6, 'rgba(40, 40, 60, 0.4)');
+    gradient.addColorStop(1, 'rgba(40, 40, 60, 0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Main obstacle body
+    const bodyGradient = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, 0, x, y, radius);
+    bodyGradient.addColorStop(0, '#5a5a7a');
+    bodyGradient.addColorStop(0.7, '#3a3a5a');
+    bodyGradient.addColorStop(1, '#2a2a4a');
+    ctx.fillStyle = bodyGradient;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Border
+    ctx.strokeStyle = 'rgba(100, 100, 140, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
   };
 
   const drawTrail = (ctx: CanvasRenderingContext2D, trail: {x: number, y: number}[], boid: number[]) => {
@@ -284,7 +344,7 @@ function App() {
   const drawStats = (ctx: CanvasRenderingContext2D, data: FrameData) => {
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.roundRect(10, 10, 130, 60, 8);
+    ctx.roundRect(10, 10, 140, 76, 8);
     ctx.fill();
     
     ctx.fillStyle = '#fff';
@@ -292,6 +352,7 @@ function App() {
     ctx.fillText(`Frame: ${data.frame_id}`, 20, 28);
     ctx.fillText(`Boids: ${data.boids.length}`, 20, 44);
     ctx.fillText(`FPS: ${data.metrics.fps.toFixed(1)}`, 20, 60);
+    ctx.fillText(`Obstacles: ${data.obstacles?.length || 0}`, 20, 76);
   };
 
   const updateParam = (key: string, value: number | boolean) => {
@@ -302,11 +363,18 @@ function App() {
     <div className="app">
       <header className="header">
         <h1>🐦 Boids Interactive Demo</h1>
-        <p>Flocking simulation with predator-prey dynamics</p>
+        <p>Flocking simulation with predator-prey dynamics • Click canvas to add obstacles</p>
       </header>
 
       <main className="main">
-        <canvas ref={canvasRef} width={800} height={600} className="canvas" />
+        <canvas 
+          ref={canvasRef} 
+          width={800} 
+          height={600} 
+          className="canvas"
+          onClick={handleCanvasClick}
+          style={{ cursor: status === 'connected' ? 'crosshair' : 'default' }}
+        />
 
         <aside className="controls">
           {/* Connection */}
@@ -338,6 +406,17 @@ function App() {
                     ↻ Reset
                   </button>
                 </div>
+              </section>
+
+              {/* Obstacles */}
+              <section className="section">
+                <h3>🪨 Obstacles ({obstacleCount})</h3>
+                <p className="hint">Click on canvas to add obstacles</p>
+                <Slider label="New Obstacle Radius" value={obstacleRadius} min={15} max={60} step={5}
+                  onChange={(v) => setObstacleRadius(v)} />
+                <button onClick={clearObstacles} style={{ marginTop: 8 }}>
+                  Clear All Obstacles
+                </button>
               </section>
 
               {/* Visual Options */}

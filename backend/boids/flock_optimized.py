@@ -11,6 +11,7 @@ from typing import List, Optional
 from .boid import Boid
 from .predator import Predator
 from .flock import SimulationParams
+from .obstacle import Obstacle, compute_obstacle_avoidance
 from .rules_optimized import FlockState, compute_all_rules_kdtree, compute_all_rules_with_predator_kdtree
 
 
@@ -35,6 +36,7 @@ class FlockOptimized:
         self.params = params or SimulationParams()
         self.boids: List[Boid] = []
         self.predator: Optional[Predator] = None
+        self.obstacles: List[Obstacle] = []
         
         for _ in range(num_boids):
             boid = Boid.create_random(
@@ -108,6 +110,7 @@ class FlockOptimized:
         3. Compute all velocity adjustments first
         4. Apply all updates at end (parallel semantics)
         5. Update predator if present (Tier 2)
+        6. Apply obstacle avoidance (Optional Enhancement)
         """
         p = self.params
         
@@ -140,9 +143,17 @@ class FlockOptimized:
             # Compute boundary steering
             boundary_dv = self.apply_boundary_steering(boid)
             
+            # Compute obstacle avoidance
+            obstacle_dv = compute_obstacle_avoidance(
+                boid.x, boid.y,
+                self.obstacles,
+                detection_range=50.0,  # Could be parameterized
+                avoidance_strength=0.5  # Could be parameterized
+            )
+            
             adjustments.append((
-                rules_dv[0] + boundary_dv[0],
-                rules_dv[1] + boundary_dv[1]
+                rules_dv[0] + boundary_dv[0] + obstacle_dv[0],
+                rules_dv[1] + boundary_dv[1] + obstacle_dv[1]
             ))
         
         # Apply all adjustments
@@ -165,6 +176,7 @@ class FlockOptimized:
         
         The predator tracks the flock center of mass and moves toward it.
         Uses same boundary handling and speed limits as boids.
+        Also avoids obstacles.
         """
         if self.predator is None:
             return
@@ -185,6 +197,17 @@ class FlockOptimized:
             turn_factor=p.turn_factor
         )
         
+        # Apply obstacle avoidance to predator
+        if self.obstacles:
+            obstacle_dv = compute_obstacle_avoidance(
+                self.predator.x, self.predator.y,
+                self.obstacles,
+                detection_range=50.0,
+                avoidance_strength=0.5
+            )
+            self.predator.vx += obstacle_dv[0]
+            self.predator.vy += obstacle_dv[1]
+        
         # Enforce speed limits (predator has own speed)
         self.predator.enforce_speed_limits(
             max_speed=p.predator_speed,
@@ -193,6 +216,56 @@ class FlockOptimized:
         
         # Update position
         self.predator.update_position()
+    
+    # =========================================================================
+    # Obstacle Management Methods
+    # =========================================================================
+    
+    def add_obstacle(self, x: float, y: float, radius: float = 30.0) -> Obstacle:
+        """
+        Add a circular obstacle to the simulation.
+        
+        Args:
+            x: X position (center)
+            y: Y position (center)
+            radius: Obstacle radius
+            
+        Returns:
+            The created Obstacle
+        """
+        obstacle = Obstacle(x=x, y=y, radius=radius)
+        self.obstacles.append(obstacle)
+        return obstacle
+    
+    def remove_obstacle(self, index: int) -> bool:
+        """
+        Remove obstacle by index.
+        
+        Args:
+            index: Index of obstacle to remove
+            
+        Returns:
+            True if removed, False if index invalid
+        """
+        if 0 <= index < len(self.obstacles):
+            self.obstacles.pop(index)
+            return True
+        return False
+    
+    def clear_obstacles(self) -> int:
+        """
+        Remove all obstacles.
+        
+        Returns:
+            Number of obstacles removed
+        """
+        count = len(self.obstacles)
+        self.obstacles.clear()
+        return count
+    
+    def get_obstacles(self) -> List[Obstacle]:
+        """Get list of all obstacles."""
+        return self.obstacles.copy()
     
     def toggle_predator(self) -> bool:
         """

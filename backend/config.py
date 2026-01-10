@@ -214,10 +214,16 @@ class MessageType:
     PRESET = "preset"
     PAUSE = "pause"
     RESUME = "resume"
+    ADD_OBSTACLE = "add_obstacle"
+    REMOVE_OBSTACLE = "remove_obstacle"
+    CLEAR_OBSTACLES = "clear_obstacles"
 
     # Server -> Client
     FRAME = "frame"
     PARAMS_SYNC = "params_sync"
+    OBSTACLE_ADDED = "obstacle_added"
+    OBSTACLE_REMOVED = "obstacle_removed"
+    OBSTACLES_CLEARED = "obstacles_cleared"
     ERROR = "error"
 
 

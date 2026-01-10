@@ -208,6 +208,10 @@ class FrameData(BaseModel):
         default=None,
         description="[x, y, vx, vy] of predator, or null"
     )
+    obstacles: List[List[float]] = Field(
+        default_factory=list,
+        description="List of [x, y, radius] for each obstacle"
+    )
     metrics: Optional[FrameMetrics] = Field(
         default=None,
         description="Metrics when predator is active"
