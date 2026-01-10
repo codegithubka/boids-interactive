@@ -1,8 +1,8 @@
 """
 Configuration constants for the Boids Interactive Demo.
 
-This module defines all parameter limits, defaults, and simulation constants.
-Single source of truth for both backend validation and frontend UI.
+Defines parameter limits, defaults, validation helpers, and constants.
+Single source of truth for both backend and frontend.
 """
 
 from dataclasses import dataclass
@@ -16,16 +16,15 @@ from typing import Dict, Tuple, Any
 SIMULATION_WIDTH: int = 800
 SIMULATION_HEIGHT: int = 600
 TARGET_FPS: int = 60
-FRAME_TIME_MS: float = 1000 / TARGET_FPS  # ~16.67ms
 
 
 # =============================================================================
-# Parameter Limits
+# Parameter Definitions
 # =============================================================================
 
 @dataclass(frozen=True)
 class ParamLimit:
-    """Defines limits for a simulation parameter."""
+    """Defines limits and metadata for a simulation parameter."""
     min: float
     max: float
     default: float
@@ -35,9 +34,8 @@ class ParamLimit:
     description: str
 
 
-# All parameter definitions with limits, defaults, and metadata
 PARAM_DEFINITIONS: Dict[str, ParamLimit] = {
-    # Primary parameters (always visible)
+    # Primary parameters (always visible in UI)
     "num_boids": ParamLimit(
         min=1, max=200, default=50, step=1,
         category="primary",
@@ -56,10 +54,10 @@ PARAM_DEFINITIONS: Dict[str, ParamLimit] = {
         label="Separation Strength",
         description="How strongly boids avoid each other"
     ),
-    
+
     # Predator parameters
     "predator_enabled": ParamLimit(
-        min=0, max=1, default=0, step=1,  # Boolean as 0/1
+        min=0, max=1, default=0, step=1,
         category="predator",
         label="Predator Enabled",
         description="Toggle predator on/off"
@@ -76,8 +74,8 @@ PARAM_DEFINITIONS: Dict[str, ParamLimit] = {
         label="Avoidance Strength",
         description="How strongly boids flee from predator"
     ),
-    
-    # Advanced parameters (hidden by default)
+
+    # Advanced parameters (hidden by default in UI)
     "protected_range": ParamLimit(
         min=2, max=50, default=12, step=1,
         category="advanced",
@@ -136,19 +134,19 @@ PARAM_DEFINITIONS: Dict[str, ParamLimit] = {
 
 
 # =============================================================================
-# Default Parameters (extracted from definitions)
+# Default Parameters
 # =============================================================================
 
 DEFAULT_PARAMS: Dict[str, Any] = {
     name: defn.default for name, defn in PARAM_DEFINITIONS.items()
 }
 
-# Convert predator_enabled to boolean for convenience
+# Convert predator_enabled to boolean
 DEFAULT_PARAMS["predator_enabled"] = bool(DEFAULT_PARAMS["predator_enabled"])
 
 
 # =============================================================================
-# Parameter Categories (for UI organization)
+# Parameter Categories
 # =============================================================================
 
 def get_params_by_category(category: str) -> Dict[str, ParamLimit]:
@@ -172,24 +170,20 @@ def validate_param(name: str, value: float) -> Tuple[bool, str]:
     """
     Validate a parameter value against its limits.
     
-    Args:
-        name: Parameter name
-        value: Value to validate
-        
     Returns:
         Tuple of (is_valid, error_message)
     """
     if name not in PARAM_DEFINITIONS:
         return False, f"Unknown parameter: {name}"
-    
+
     defn = PARAM_DEFINITIONS[name]
-    
+
     if value < defn.min:
         return False, f"{name} must be >= {defn.min}"
-    
+
     if value > defn.max:
         return False, f"{name} must be <= {defn.max}"
-    
+
     return True, ""
 
 
@@ -197,7 +191,7 @@ def clamp_param(name: str, value: float) -> float:
     """Clamp a parameter value to its valid range."""
     if name not in PARAM_DEFINITIONS:
         return value
-    
+
     defn = PARAM_DEFINITIONS[name]
     return max(defn.min, min(defn.max, value))
 
@@ -213,14 +207,14 @@ def get_default(name: str) -> Any:
 
 class MessageType:
     """Constants for WebSocket message types."""
-    
+
     # Client -> Server
     UPDATE_PARAMS = "update_params"
     RESET = "reset"
     PRESET = "preset"
     PAUSE = "pause"
     RESUME = "resume"
-    
+
     # Server -> Client
     FRAME = "frame"
     PARAMS_SYNC = "params_sync"
@@ -242,7 +236,6 @@ class PresetName:
     SWARM_DEFENSE = "swarm_defense"
 
 
-# All valid preset names
 VALID_PRESETS = [
     PresetName.DEFAULT,
     PresetName.TIGHT_SWARM,

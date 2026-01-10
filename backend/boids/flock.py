@@ -7,9 +7,9 @@ Handles initialization, update loop, and parameter configuration.
 import numpy as np
 from dataclasses import dataclass, field
 from typing import List, Optional
-from boid import Boid
-from predator import Predator
-from rules import compute_separation, compute_alignment, compute_cohesion, compute_predator_avoidance
+from .boid import Boid
+from .predator import Predator
+from .rules import compute_separation, compute_alignment, compute_cohesion, compute_predator_avoidance
 
 
 @dataclass

@@ -6,7 +6,7 @@ Rules follow the specification from Phase 1 documentation.
 """
 
 from typing import List, Tuple
-from boid import Boid
+from .boid import Boid
 
 
 def compute_separation(

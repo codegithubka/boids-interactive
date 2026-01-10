@@ -8,10 +8,10 @@ for O(n log n) neighbor finding instead of O(n²) naive iteration.
 import numpy as np
 from dataclasses import dataclass
 from typing import List, Optional
-from boid import Boid
-from predator import Predator
-from flock import SimulationParams
-from rules_optimized import FlockState, compute_all_rules_kdtree, compute_all_rules_with_predator_kdtree
+from .boid import Boid
+from .predator import Predator
+from .flock import SimulationParams
+from .rules_optimized import FlockState, compute_all_rules_kdtree, compute_all_rules_with_predator_kdtree
 
 
 class FlockOptimized:

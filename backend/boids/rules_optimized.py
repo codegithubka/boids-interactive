@@ -9,7 +9,7 @@ of O(n²) naive iteration.
 import numpy as np
 from scipy.spatial import KDTree
 from typing import List, Tuple, Optional
-from boid import Boid
+from .boid import Boid
 
 
 class FlockState:

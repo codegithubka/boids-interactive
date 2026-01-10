@@ -9,8 +9,8 @@ import numpy as np
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
 
-from boid import Boid
-from predator import Predator
+from .boid import Boid
+from .predator import Predator
 
 
 def compute_distance_to_predator(boid: Boid, predator: Predator) -> float:
