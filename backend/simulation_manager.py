@@ -86,7 +86,8 @@ class SimulationManager:
         self._flock = FlockOptimized(
             num_boids=self._params.num_boids,
             params=flock_params,
-            enable_predator=self._params.predator_enabled
+            enable_predator=self._params.predator_enabled,
+            num_predators=self._params.num_predators
         )
 
     # =========================================================================
@@ -161,13 +162,17 @@ class SimulationManager:
         Args:
             updates: Dictionary of parameter updates (partial)
         """
-        # Check if num_boids or predator_enabled changed (requires flock recreation)
+        # Check if num_boids changed (requires flock recreation)
         needs_recreation = (
             'num_boids' in updates and updates['num_boids'] != self._params.num_boids
         )
         predator_toggled = (
             'predator_enabled' in updates and 
             updates['predator_enabled'] != self._params.predator_enabled
+        )
+        num_predators_changed = (
+            'num_predators' in updates and
+            updates['num_predators'] != self._params.num_predators
         )
         
         # Apply updates to params
@@ -187,9 +192,12 @@ class SimulationManager:
         elif predator_toggled:
             # Toggle predator without full recreation
             if self._params.predator_enabled:
-                self._flock.toggle_predator()  # Enable
+                self._flock.set_num_predators(self._params.num_predators)
             else:
-                self._flock.toggle_predator()  # Disable
+                self._flock.set_num_predators(0)
+        elif num_predators_changed and self._params.predator_enabled:
+            # Update number of predators
+            self._flock.set_num_predators(self._params.num_predators)
         else:
             # Update flock params in place
             self._update_flock_params()
@@ -227,7 +235,7 @@ class SimulationManager:
         Get current frame data for sending to client.
         
         Returns:
-            FrameData with boids, predator, obstacles, and metrics
+            FrameData with boids, predators, obstacles, and metrics
         """
         # Serialize boids: [[x, y, vx, vy], ...]
         boids_data = [
@@ -235,10 +243,23 @@ class SimulationManager:
             for b in self._flock.boids
         ]
         
-        # Serialize predator if present
+        # Serialize all predators with strategy info
+        predators_data = [
+            {
+                "x": p.x,
+                "y": p.y,
+                "vx": p.vx,
+                "vy": p.vy,
+                "strategy": p.strategy.value,
+                "strategy_name": p.strategy_name
+            }
+            for p in self._flock.predators
+        ]
+        
+        # First predator for backward compatibility
         predator_data = None
-        if self._flock.predator is not None:
-            p = self._flock.predator
+        if self._flock.predators:
+            p = self._flock.predators[0]
             predator_data = [p.x, p.y, p.vx, p.vy]
         
         # Serialize obstacles
@@ -247,7 +268,7 @@ class SimulationManager:
             for obs in self._flock.obstacles
         ]
         
-        # Compute metrics if predator is active
+        # Compute metrics if predator is active (uses first predator)
         metrics = None
         if self._flock.predator is not None:
             metrics = FrameMetrics(
@@ -273,6 +294,7 @@ class SimulationManager:
             frame_id=self._frame_id,
             boids=boids_data,
             predator=predator_data,
+            predators=predators_data,
             obstacles=obstacles_data,
             metrics=metrics
         )

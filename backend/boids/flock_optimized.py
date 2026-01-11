@@ -7,12 +7,17 @@ for O(n log n) neighbor finding instead of O(n²) naive iteration.
 
 import numpy as np
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from .boid import Boid
 from .predator import Predator
 from .flock import SimulationParams
 from .obstacle import Obstacle, compute_obstacle_avoidance
-from .rules_optimized import FlockState, compute_all_rules_kdtree, compute_all_rules_with_predator_kdtree
+from .rules_optimized import (
+    FlockState, 
+    compute_all_rules_kdtree, 
+    compute_all_rules_with_predator_kdtree,
+    compute_all_rules_with_multi_predator_kdtree
+)
 
 
 class FlockOptimized:
@@ -21,21 +26,24 @@ class FlockOptimized:
     
     Drop-in replacement for Flock class with identical behavior
     but better performance for large numbers of boids.
+    
+    Supports multiple predators (Optional Enhancement).
     """
     
     def __init__(self, num_boids: int, params: SimulationParams = None,
-                 enable_predator: bool = False):
+                 enable_predator: bool = False, num_predators: int = 1):
         """
         Initialize the flock with random boids.
         
         Args:
             num_boids: Number of boids to create
             params: Simulation parameters (uses defaults if None)
-            enable_predator: If True, create a predator (Tier 2)
+            enable_predator: If True, create predator(s) (Tier 2)
+            num_predators: Number of predators to create (1-5)
         """
         self.params = params or SimulationParams()
         self.boids: List[Boid] = []
-        self.predator: Optional[Predator] = None
+        self.predators: List[Predator] = []
         self.obstacles: List[Obstacle] = []
         
         for _ in range(num_boids):
@@ -49,13 +57,36 @@ class FlockOptimized:
         # Initialize spatial index
         self._flock_state = FlockState(self.boids)
         
-        # Initialize predator if enabled
+        # Initialize predators if enabled
         if enable_predator:
-            self.predator = Predator.create_random(
-                width=self.params.width,
-                height=self.params.height,
-                speed=self.params.predator_speed
-            )
+            num_predators = max(1, min(5, num_predators))  # Clamp to 1-5
+            for i in range(num_predators):
+                predator = Predator.create_with_strategy_index(
+                    index=i,
+                    width=self.params.width,
+                    height=self.params.height,
+                    speed=self.params.predator_speed
+                )
+                self.predators.append(predator)
+    
+    # =========================================================================
+    # Backward Compatibility Property
+    # =========================================================================
+    
+    @property
+    def predator(self) -> Optional[Predator]:
+        """Get first predator (backward compatibility)."""
+        return self.predators[0] if self.predators else None
+    
+    @predator.setter
+    def predator(self, value: Optional[Predator]) -> None:
+        """Set first predator (backward compatibility)."""
+        if value is None:
+            self.predators.clear()
+        elif self.predators:
+            self.predators[0] = value
+        else:
+            self.predators.append(value)
     
     def apply_boundary_steering(self, boid: Boid) -> tuple:
         """
@@ -109,7 +140,7 @@ class FlockOptimized:
         2. Use KDTree queries for neighbor finding
         3. Compute all velocity adjustments first
         4. Apply all updates at end (parallel semantics)
-        5. Update predator if present (Tier 2)
+        5. Update predators if present (Tier 2 + Multiple Predators)
         6. Apply obstacle avoidance (Optional Enhancement)
         """
         p = self.params
@@ -117,16 +148,17 @@ class FlockOptimized:
         # Rebuild spatial index with current positions
         self._flock_state.update()
         
-        # Get predator position (or None)
-        predator_x = self.predator.x if self.predator else None
-        predator_y = self.predator.y if self.predator else None
+        # Get all predator positions for multi-predator avoidance
+        predator_positions: List[Tuple[float, float]] = [
+            (pred.x, pred.y) for pred in self.predators
+        ]
         
         # Compute all velocity adjustments first (parallel semantics)
         adjustments = []
         
         for i, boid in enumerate(self.boids):
-            # Compute flocking rules using KDTree (including predator avoidance)
-            rules_dv = compute_all_rules_with_predator_kdtree(
+            # Compute flocking rules using KDTree (including multi-predator avoidance)
+            rules_dv = compute_all_rules_with_multi_predator_kdtree(
                 boid_index=i,
                 flock_state=self._flock_state,
                 visual_range=p.visual_range,
@@ -134,8 +166,7 @@ class FlockOptimized:
                 cohesion_factor=p.cohesion_factor,
                 alignment_factor=p.alignment_factor,
                 separation_strength=p.separation_strength,
-                predator_x=predator_x,
-                predator_y=predator_y,
+                predator_positions=predator_positions,
                 predator_detection_range=p.predator_detection_range,
                 predator_avoidance_strength=p.predator_avoidance_strength
             )
@@ -147,8 +178,8 @@ class FlockOptimized:
             obstacle_dv = compute_obstacle_avoidance(
                 boid.x, boid.y,
                 self.obstacles,
-                detection_range=50.0,  # Could be parameterized
-                avoidance_strength=0.5  # Could be parameterized
+                detection_range=50.0,
+                avoidance_strength=0.5
             )
             
             adjustments.append((
@@ -166,56 +197,56 @@ class FlockOptimized:
             boid.x += boid.vx
             boid.y += boid.vy
         
-        # Update predator (Tier 2)
-        if self.predator is not None:
-            self.update_predator()
+        # Update all predators
+        self.update_predators()
     
-    def update_predator(self) -> None:
+    def update_predators(self) -> None:
         """
-        Update the predator's state.
+        Update all predators' states.
         
-        The predator tracks the flock center of mass and moves toward it.
+        Each predator uses its assigned hunting strategy.
         Uses same boundary handling and speed limits as boids.
         Also avoids obstacles.
         """
-        if self.predator is None:
+        if not self.predators:
             return
         
         p = self.params
         
-        # Predator steers toward flock center
-        self.predator.update_velocity_toward_center(
-            self.boids,
-            hunting_strength=p.predator_hunting_strength
-        )
-        
-        # Apply boundary steering
-        self.predator.apply_boundary_steering(
-            width=p.width,
-            height=p.height,
-            margin=p.margin,
-            turn_factor=p.turn_factor
-        )
-        
-        # Apply obstacle avoidance to predator
-        if self.obstacles:
-            obstacle_dv = compute_obstacle_avoidance(
-                self.predator.x, self.predator.y,
-                self.obstacles,
-                detection_range=50.0,
-                avoidance_strength=0.5
+        for predator in self.predators:
+            # Predator uses its strategy to hunt
+            predator.update_velocity_by_strategy(
+                self.boids,
+                hunting_strength=p.predator_hunting_strength
             )
-            self.predator.vx += obstacle_dv[0]
-            self.predator.vy += obstacle_dv[1]
-        
-        # Enforce speed limits (predator has own speed)
-        self.predator.enforce_speed_limits(
-            max_speed=p.predator_speed,
-            min_speed=p.predator_speed * 0.5  # Min is half of max
-        )
-        
-        # Update position
-        self.predator.update_position()
+            
+            # Apply boundary steering
+            predator.apply_boundary_steering(
+                width=p.width,
+                height=p.height,
+                margin=p.margin,
+                turn_factor=p.turn_factor
+            )
+            
+            # Apply obstacle avoidance to predator
+            if self.obstacles:
+                obstacle_dv = compute_obstacle_avoidance(
+                    predator.x, predator.y,
+                    self.obstacles,
+                    detection_range=50.0,
+                    avoidance_strength=0.5
+                )
+                predator.vx += obstacle_dv[0]
+                predator.vy += obstacle_dv[1]
+            
+            # Enforce speed limits (predator has own speed)
+            predator.enforce_speed_limits(
+                max_speed=p.predator_speed,
+                min_speed=p.predator_speed * 0.5
+            )
+            
+            # Update position
+            predator.update_position()
     
     # =========================================================================
     # Obstacle Management Methods
@@ -269,21 +300,101 @@ class FlockOptimized:
     
     def toggle_predator(self) -> bool:
         """
-        Toggle predator on/off.
+        Toggle predator on/off (single predator for backward compatibility).
         
         Returns:
             True if predator is now enabled, False if disabled
         """
-        if self.predator is None:
-            self.predator = Predator.create_random(
+        if not self.predators:
+            predator = Predator.create_with_strategy_index(
+                index=0,
                 width=self.params.width,
                 height=self.params.height,
                 speed=self.params.predator_speed
             )
+            self.predators.append(predator)
             return True
         else:
-            self.predator = None
+            self.predators.clear()
             return False
+    
+    # =========================================================================
+    # Multiple Predator Management
+    # =========================================================================
+    
+    def add_predator(self) -> Optional[Predator]:
+        """
+        Add a new predator to the simulation.
+        
+        Strategy is assigned based on predator index.
+        
+        Returns:
+            The created Predator, or None if max predators reached (5)
+        """
+        if len(self.predators) >= 5:
+            return None
+        
+        index = len(self.predators)
+        predator = Predator.create_with_strategy_index(
+            index=index,
+            width=self.params.width,
+            height=self.params.height,
+            speed=self.params.predator_speed
+        )
+        self.predators.append(predator)
+        return predator
+    
+    def remove_predator(self, index: int = -1) -> bool:
+        """
+        Remove a predator by index.
+        
+        Args:
+            index: Index of predator to remove (-1 for last)
+            
+        Returns:
+            True if removed, False if invalid index or no predators
+        """
+        if not self.predators:
+            return False
+        
+        if index == -1:
+            self.predators.pop()
+            return True
+        
+        if 0 <= index < len(self.predators):
+            self.predators.pop(index)
+            return True
+        
+        return False
+    
+    def set_num_predators(self, count: int) -> int:
+        """
+        Set the exact number of predators.
+        
+        Args:
+            count: Desired number of predators (0-5)
+            
+        Returns:
+            Actual number of predators after adjustment
+        """
+        count = max(0, min(5, count))  # Clamp to 0-5
+        
+        while len(self.predators) < count:
+            self.add_predator()
+        
+        while len(self.predators) > count:
+            self.predators.pop()
+        
+        return len(self.predators)
+    
+    def get_predators(self) -> List[Predator]:
+        """Get list of all predators."""
+        return self.predators.copy()
+    
+    @property
+    def num_predators(self) -> int:
+        """Number of active predators."""
+        return len(self.predators)
     
     def get_positions(self) -> np.ndarray:
         """Get all boid positions as a numpy array."""

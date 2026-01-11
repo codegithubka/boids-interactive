@@ -130,6 +130,12 @@ PARAM_DEFINITIONS: Dict[str, ParamLimit] = {
         label="Hunting Strength",
         description="How aggressively predator pursues flock"
     ),
+    "num_predators": ParamLimit(
+        min=1, max=5, default=1, step=1,
+        category="predator",
+        label="Number of Predators",
+        description="Number of predators in simulation (1-5)"
+    ),
 }
 
 

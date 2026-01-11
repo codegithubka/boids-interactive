@@ -413,3 +413,119 @@ def compute_all_rules_with_predator_kdtree(
         dvy += pred_dvy
     
     return (dvx, dvy)
+
+
+def compute_multi_predator_avoidance_kdtree(
+    boid_index: int,
+    flock_state: FlockState,
+    predator_positions: List[Tuple[float, float]],
+    detection_range: float,
+    avoidance_strength: float
+) -> Tuple[float, float]:
+    """
+    Compute avoidance steering from multiple predators.
+    
+    Boid flees from the nearest predator within detection range.
+    
+    Args:
+        boid_index: Index of the current boid
+        flock_state: FlockState with spatial index
+        predator_positions: List of (x, y) positions for all predators
+        detection_range: Distance at which boid detects predators
+        avoidance_strength: Base multiplier for avoidance force
+        
+    Returns:
+        Tuple (dvx, dvy) — velocity adjustment
+    """
+    if not predator_positions:
+        return (0.0, 0.0)
+    
+    boid_pos = flock_state.positions[boid_index]
+    detection_range_squared = detection_range * detection_range
+    
+    # Find nearest predator within detection range
+    nearest_dist_sq = float('inf')
+    nearest_dx = 0.0
+    nearest_dy = 0.0
+    
+    for pred_x, pred_y in predator_positions:
+        dx = boid_pos[0] - pred_x
+        dy = boid_pos[1] - pred_y
+        dist_sq = dx * dx + dy * dy
+        
+        if dist_sq < nearest_dist_sq:
+            nearest_dist_sq = dist_sq
+            nearest_dx = dx
+            nearest_dy = dy
+    
+    # No avoidance if all predators outside detection range
+    if nearest_dist_sq >= detection_range_squared:
+        return (0.0, 0.0)
+    
+    # Handle edge case: predator at exact same position
+    if nearest_dist_sq < 1e-10:
+        angle = np.random.uniform(0, 2 * np.pi)
+        return (
+            avoidance_strength * 10 * np.cos(angle),
+            avoidance_strength * 10 * np.sin(angle)
+        )
+    
+    # Scale avoidance inversely with distance
+    distance = nearest_dist_sq ** 0.5
+    scale = (detection_range - distance) / detection_range
+    
+    # Normalize direction and apply scaled strength
+    dvx = (nearest_dx / distance) * avoidance_strength * scale * detection_range
+    dvy = (nearest_dy / distance) * avoidance_strength * scale * detection_range
+    
+    return (dvx, dvy)
+
+
+def compute_all_rules_with_multi_predator_kdtree(
+    boid_index: int,
+    flock_state: FlockState,
+    visual_range: float,
+    protected_range: float,
+    cohesion_factor: float,
+    alignment_factor: float,
+    separation_strength: float,
+    predator_positions: List[Tuple[float, float]],
+    predator_detection_range: float,
+    predator_avoidance_strength: float
+) -> Tuple[float, float]:
+    """
+    Compute all flocking rules with multiple predator avoidance.
+    
+    Args:
+        boid_index: Index of the current boid
+        flock_state: FlockState with spatial index
+        visual_range: Distance threshold for visibility
+        protected_range: Distance threshold for separation
+        cohesion_factor: Weight for cohesion
+        alignment_factor: Weight for alignment
+        separation_strength: Weight for separation
+        predator_positions: List of (x, y) positions for all predators
+        predator_detection_range: Distance for predator detection
+        predator_avoidance_strength: Weight for predator avoidance
+        
+    Returns:
+        Tuple (dvx, dvy) — combined velocity adjustment from all rules
+    """
+    # Get base flocking rules
+    dvx, dvy = compute_all_rules_kdtree(
+        boid_index, flock_state,
+        visual_range, protected_range,
+        cohesion_factor, alignment_factor, separation_strength
+    )
+    
+    # Add multi-predator avoidance
+    if predator_positions:
+        pred_dvx, pred_dvy = compute_multi_predator_avoidance_kdtree(
+            boid_index, flock_state,
+            predator_positions,
+            predator_detection_range, predator_avoidance_strength
+        )
+        dvx += pred_dvx
+        dvy += pred_dvy
+    
+    return (dvx, dvy)

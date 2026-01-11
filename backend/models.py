@@ -116,6 +116,12 @@ class SimulationParams(BaseModel):
         le=PARAM_DEFINITIONS["predator_hunting_strength"].max,
         description="Predator pursuit strength"
     )
+    num_predators: int = Field(
+        default=DEFAULT_PARAMS["num_predators"],
+        ge=PARAM_DEFINITIONS["num_predators"].min,
+        le=PARAM_DEFINITIONS["num_predators"].max,
+        description="Number of predators (1-5)"
+    )
 
     @model_validator(mode='after')
     def validate_speed_range(self):
@@ -206,7 +212,11 @@ class FrameData(BaseModel):
     )
     predator: Optional[List[float]] = Field(
         default=None,
-        description="[x, y, vx, vy] of predator, or null"
+        description="[x, y, vx, vy] of first predator (backward compat)"
+    )
+    predators: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of {x, y, vx, vy, strategy} for each predator"
     )
     obstacles: List[List[float]] = Field(
         default_factory=list,
