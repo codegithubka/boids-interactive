@@ -1,5 +1,10 @@
 /**
- * Boids Interactive Demo - Enhanced Visuals with Obstacles
+ * Boids Interactive Demo - Enhanced with Predator Species
+ * 
+ * Features:
+ * - Flocking simulation with obstacles
+ * - Multiple predators with unique hunting strategies
+ * - Visual distinction by species
  */
 
 import { useState, useRef, useCallback } from 'react';
@@ -7,12 +12,22 @@ import './App.css';
 
 const WS_URL = 'ws://localhost:8000/ws';
 
+interface PredatorData {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  strategy: string;
+  strategy_name: string;
+}
+
 interface FrameData {
   type: string;
   frame_id: number;
   boids: number[][];
   predator: number[] | null;
-  obstacles: number[][];  // [[x, y, radius], ...]
+  predators: PredatorData[];
+  obstacles: number[][];
   metrics: {
     fps: number;
     avg_distance_to_predator?: number;
@@ -27,6 +42,7 @@ interface Params {
   predator_enabled: boolean;
   predator_speed: number;
   predator_avoidance_strength: number;
+  num_predators: number;
   cohesion_factor: number;
   alignment_factor: number;
   max_speed: number;
@@ -42,6 +58,46 @@ const PRESETS = [
   { value: 'predator_chase', label: 'Predator Chase' },
   { value: 'swarm_defense', label: 'Swarm Defense' },
 ];
+
+// Predator species with colors and descriptions
+const PREDATOR_SPECIES = [
+  { 
+    name: 'Hawk', 
+    strategy: 'center',
+    body: '#ff6b6b', wing: '#ee5555', glow: '#ff4444',
+    desc: 'Hunts flock center'
+  },
+  { 
+    name: 'Falcon', 
+    strategy: 'nearest',
+    body: '#ffa726', wing: '#ff9800', glow: '#ff6600',
+    desc: 'Chases nearest boid'
+  },
+  { 
+    name: 'Eagle', 
+    strategy: 'straggler',
+    body: '#ab47bc', wing: '#9c27b0', glow: '#7b1fa2',
+    desc: 'Targets stragglers'
+  },
+  { 
+    name: 'Kite', 
+    strategy: 'patrol',
+    body: '#26c6da', wing: '#00bcd4', glow: '#00acc1',
+    desc: 'Patrols & ambushes'
+  },
+  { 
+    name: 'Osprey', 
+    strategy: 'random',
+    body: '#66bb6a', wing: '#4caf50', glow: '#43a047',
+    desc: 'Switches targets'
+  },
+];
+
+// Get species colors by strategy
+const getSpeciesColors = (strategy: string) => {
+  const species = PREDATOR_SPECIES.find(s => s.strategy === strategy);
+  return species || PREDATOR_SPECIES[0];
+};
 
 // Store trails for each boid
 const trailsMap = new Map<number, {x: number, y: number}[]>();
@@ -158,20 +214,23 @@ function App() {
       });
     }
 
-    // Draw predator danger zone
-    if (data.predator) {
-      drawPredatorAura(ctx, data.predator);
-    }
+    // Get predators
+    const predators = data.predators || [];
 
-    // Draw boids
-    data.boids.forEach((boid) => {
-      drawBird(ctx, boid, data.predator);
+    // Draw predator danger zones
+    predators.forEach((predator) => {
+      drawPredatorAura(ctx, predator);
     });
 
-    // Draw predator
-    if (data.predator) {
-      drawPredator(ctx, data.predator);
-    }
+    // Draw boids (check distance to nearest predator for fear)
+    data.boids.forEach((boid) => {
+      drawBird(ctx, boid, predators);
+    });
+
+    // Draw all predators with species-specific colors
+    predators.forEach((predator) => {
+      drawPredator(ctx, predator);
+    });
 
     // Draw stats
     drawStats(ctx, data);
@@ -224,19 +283,19 @@ function App() {
     ctx.stroke();
   };
 
-  const drawBird = (ctx: CanvasRenderingContext2D, boid: number[], predator: number[] | null) => {
+  const drawBird = (ctx: CanvasRenderingContext2D, boid: number[], predators: PredatorData[]) => {
     const [x, y, vx, vy] = boid;
     const angle = Math.atan2(vy, vx);
     const speed = Math.sqrt(vx * vx + vy * vy);
     const normalizedSpeed = Math.min(speed / 4, 1);
 
-    // Check distance to predator for fear coloring
+    // Check distance to nearest predator for fear coloring
     let fear = 0;
-    if (predator) {
-      const dx = x - predator[0];
-      const dy = y - predator[1];
+    for (const predator of predators) {
+      const dx = x - predator.x;
+      const dy = y - predator.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      fear = Math.max(0, 1 - dist / 150);
+      fear = Math.max(fear, Math.max(0, 1 - dist / 150));
     }
 
     ctx.save();
@@ -278,14 +337,22 @@ function App() {
     ctx.restore();
   };
 
-  const drawPredatorAura = (ctx: CanvasRenderingContext2D, predator: number[]) => {
-    const [x, y] = predator;
+  const drawPredatorAura = (ctx: CanvasRenderingContext2D, predator: PredatorData) => {
+    const { x, y, strategy } = predator;
+    const species = getSpeciesColors(strategy);
     
-    // Danger zone gradient
+    // Danger zone gradient with species color
     const gradient = ctx.createRadialGradient(x, y, 0, x, y, 150);
-    gradient.addColorStop(0, 'rgba(255, 80, 80, 0.15)');
-    gradient.addColorStop(0.5, 'rgba(255, 80, 80, 0.05)');
-    gradient.addColorStop(1, 'rgba(255, 80, 80, 0)');
+    
+    // Extract RGB from hex
+    const hex = species.glow;
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    
+    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.12)`);
+    gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.04)`);
+    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
     
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -293,26 +360,26 @@ function App() {
     ctx.fill();
   };
 
-  const drawPredator = (ctx: CanvasRenderingContext2D, predator: number[]) => {
-    const [x, y, vx, vy] = predator;
+  const drawPredator = (ctx: CanvasRenderingContext2D, predator: PredatorData) => {
+    const { x, y, vx, vy, strategy, strategy_name } = predator;
     const angle = Math.atan2(vy, vx);
+    const species = getSpeciesColors(strategy);
 
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
 
     // Glow
-    ctx.shadowColor = '#ff4444';
+    ctx.shadowColor = species.glow;
     ctx.shadowBlur = 20;
 
     // Hawk-like shape
     ctx.beginPath();
-    // Body
     ctx.moveTo(18, 0);
     ctx.bezierCurveTo(12, -5, -8, -6, -12, 0);
     ctx.bezierCurveTo(-8, 6, 12, 5, 18, 0);
     ctx.closePath();
-    ctx.fillStyle = '#ff6b6b';
+    ctx.fillStyle = species.body;
     ctx.fill();
 
     // Wings - swept back
@@ -325,7 +392,7 @@ function App() {
     ctx.lineTo(-8, 14);
     ctx.lineTo(2, 0);
     ctx.closePath();
-    ctx.fillStyle = '#ee5555';
+    ctx.fillStyle = species.wing;
     ctx.fill();
 
     // Eye
@@ -339,20 +406,30 @@ function App() {
     ctx.fill();
 
     ctx.restore();
+
+    // Draw species name label
+    ctx.shadowBlur = 0;
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = species.body;
+    ctx.textAlign = 'center';
+    ctx.fillText(strategy_name, x, y - 22);
   };
 
   const drawStats = (ctx: CanvasRenderingContext2D, data: FrameData) => {
+    const predatorCount = data.predators?.length || 0;
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.roundRect(10, 10, 140, 76, 8);
+    ctx.roundRect(10, 10, 145, 92, 8);
     ctx.fill();
     
     ctx.fillStyle = '#fff';
     ctx.font = '12px monospace';
+    ctx.textAlign = 'left';
     ctx.fillText(`Frame: ${data.frame_id}`, 20, 28);
     ctx.fillText(`Boids: ${data.boids.length}`, 20, 44);
     ctx.fillText(`FPS: ${data.metrics.fps.toFixed(1)}`, 20, 60);
-    ctx.fillText(`Obstacles: ${data.obstacles?.length || 0}`, 20, 76);
+    ctx.fillText(`Predators: ${predatorCount}`, 20, 76);
+    ctx.fillText(`Obstacles: ${data.obstacles?.length || 0}`, 20, 92);
   };
 
   const updateParam = (key: string, value: number | boolean) => {
@@ -363,7 +440,7 @@ function App() {
     <div className="app">
       <header className="header">
         <h1>🐦 Boids Interactive Demo</h1>
-        <p>Flocking simulation with predator-prey dynamics • Click canvas to add obstacles</p>
+        <p>Flocking simulation with predator species • Click canvas to add obstacles</p>
       </header>
 
       <main className="main">
@@ -471,22 +548,36 @@ function App() {
               {/* Predator */}
               {params && (
                 <section className="section">
-                  <h3>🦅 Predator</h3>
+                  <h3>🦅 Predator Species</h3>
                   <label className="checkbox">
                     <input
                       type="checkbox"
                       checked={params.predator_enabled}
                       onChange={(e) => updateParam('predator_enabled', e.target.checked)}
                     />
-                    Enable Predator
+                    Enable Predators
                   </label>
                   
                   {params.predator_enabled && (
                     <>
+                      <Slider label="Number of Predators" value={params.num_predators} min={1} max={5} step={1}
+                        onChange={(v) => updateParam('num_predators', v)} />
                       <Slider label="Hunt Speed" value={params.predator_speed} min={0.5} max={5} step={0.1}
                         onChange={(v) => updateParam('predator_speed', v)} />
                       <Slider label="Flock Fear" value={params.predator_avoidance_strength} min={0.05} max={1.5} step={0.05}
                         onChange={(v) => updateParam('predator_avoidance_strength', v)} />
+                      
+                      {/* Species Legend */}
+                      <div className="species-legend">
+                        <h4>Species & Strategies</h4>
+                        {PREDATOR_SPECIES.slice(0, params.num_predators).map((species, i) => (
+                          <div key={i} className="species-item">
+                            <span className="species-dot" style={{ background: species.body }} />
+                            <span className="species-name">{species.name}</span>
+                            <span className="species-desc">{species.desc}</span>
+                          </div>
+                        ))}
+                      </div>
                     </>
                   )}
                 </section>

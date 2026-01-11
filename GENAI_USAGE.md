@@ -24,13 +24,14 @@ This document tracks the development of an interactive web-based Boids simulatio
 | 10 | Enhanced visuals | ✅ Complete | — |
 | **Optional Enhancements** | | | |
 | 11 | Static Obstacles | ✅ Complete | 34 |
-| 12 | Multiple Predators | ⏳ Planned | — |
+| 12 | Multiple Predators | ✅ Complete | 23 |
+| 12.7 | Predator Species | ✅ Complete | 23 |
 | 13 | Performance Optimization | ⏳ Planned | — |
 
-**Total Backend Tests**: 188 passing
-**Backend Status**: ✅ Complete + Enhancements in progress
-**Frontend Status**: ✅ Complete (simplified architecture)
-**Project Status**: 🔄 Optional Enhancements in Progress
+**Total Backend Tests**: 234 passing
+**Backend Status**: ✅ Complete + Enhancements complete
+**Frontend Status**: ✅ Complete
+**Project Status**: ✅ Optional Enhancements Complete
 
 ---
 
@@ -592,6 +593,8 @@ All steps completed successfully.
 | `tests/test_websocket.py` | ✅ | 15 | WebSocket tests |
 | `tests/test_obstacle.py` | ✅ | 21 | Obstacle tests |
 | `tests/test_flock_obstacles.py` | ✅ | 13 | Flock obstacle integration tests |
+| `tests/test_multi_predator.py` | ✅ | 23 | Multiple predator tests |
+| `tests/test_predator_strategies.py` | ✅ | 23 | Hunting strategy tests |
 
 ### Frontend (Complete ✅ — Simplified Architecture)
 
@@ -889,6 +892,157 @@ const drawObstacle = (ctx, obs) => {
 
 ---
 
+### Step 12: Multiple Predators
+
+**Prompt**: "Proceed with the next step and document"
+
+**Implementation Plan**:
+| Sub-step | Component | Description |
+|----------|-----------|-------------|
+| 12.1 | `rules_optimized.py` | Multi-predator avoidance functions |
+| 12.2 | `flock_optimized.py` | Predators list, management methods |
+| 12.3 | `config.py` | num_predators parameter definition |
+| 12.4 | `models.py` | num_predators field, predators array in FrameData |
+| 12.5 | `simulation_manager.py` | Support for num_predators |
+| 12.6 | Frontend | Multi-predator rendering with unique colors |
+
+---
+
+#### Step 12.1: Multi-Predator Avoidance Rules
+
+**Actions taken**:
+- Added `compute_multi_predator_avoidance_kdtree()` function
+- Added `compute_all_rules_with_multi_predator_kdtree()` function
+- Boids flee from nearest predator within detection range
+
+**Key algorithm**:
+```python
+def compute_multi_predator_avoidance_kdtree(boid_index, flock_state, predator_positions, ...):
+    # Find nearest predator within detection range
+    nearest_dist_sq = inf
+    for pred_x, pred_y in predator_positions:
+        dist_sq = (boid.x - pred_x)² + (boid.y - pred_y)²
+        if dist_sq < nearest_dist_sq:
+            nearest_dist_sq = dist_sq
+    # Apply avoidance from nearest predator
+```
+
+---
+
+#### Step 12.2: FlockOptimized Multiple Predators
+
+**Actions taken**:
+- Changed `self.predator` to `self.predators: List[Predator]`
+- Added backward-compatible `predator` property
+- Updated `update()` to use multi-predator avoidance
+- Renamed `update_predator()` to `update_predators()`
+- Added predator management methods
+
+**New methods**:
+```python
+add_predator() -> Optional[Predator]  # Max 5
+remove_predator(index=-1) -> bool
+set_num_predators(count) -> int  # Clamps to 0-5
+get_predators() -> List[Predator]
+num_predators -> int  # property
+```
+
+**Tests**: 23/23 passing (test_multi_predator.py)
+
+---
+
+#### Step 12.3-12.5: Backend Parameter Support
+
+**Files modified**:
+| File | Changes |
+|------|---------|
+| `config.py` | Added `num_predators` to PARAM_DEFINITIONS (1-5, default 1) |
+| `models.py` | Added `num_predators` field, `predators` array in FrameData |
+| `simulation_manager.py` | Pass `num_predators` to flock, handle in `update_params()` |
+
+**New parameter**:
+```python
+"num_predators": ParamLimit(
+    min=1, max=5, default=1, step=1,
+    category="predator",
+    label="Number of Predators"
+)
+```
+
+---
+
+#### Step 12.6: Frontend Multiple Predators
+
+**Actions taken**:
+- Added `predators` array support to FrameData interface
+- Created `PREDATOR_COLORS` array for visual distinction (5 colors)
+- Updated `drawBird()` to check fear from all predators
+- Updated `drawPredator()` to accept color index
+- Added "Number of Predators" slider (1-5)
+
+**Predator colors**:
+| Index | Body | Description |
+|-------|------|-------------|
+| 0 | #ff6b6b | Red (original) |
+| 1 | #ffa726 | Orange |
+| 2 | #ab47bc | Purple |
+| 3 | #26c6da | Cyan |
+| 4 | #66bb6a | Green |
+
+**Status**: ✅ Complete
+
+---
+
+### Step 12.7: Predator Species & Hunting Strategies
+
+**Prompt**: "I think these predators should have different characteristics like a different species otherwise they all move together and it doesn't look good at all. What do you think?"
+
+**Problem**: All predators were using CENTER_HUNTER strategy, causing them to clump together chasing the flock center.
+
+**Solution**: Implemented 5 distinct hunting strategies, each assigned to predators by index.
+
+---
+
+#### Hunting Strategies
+
+| Species | Strategy | Color | Behavior |
+|---------|----------|-------|----------|
+| **Hawk** | CENTER_HUNTER | Red | Hunts flock center of mass |
+| **Falcon** | NEAREST_HUNTER | Orange | Chases nearest boid |
+| **Eagle** | STRAGGLER_HUNTER | Purple | Targets isolated boids |
+| **Kite** | PATROL_HUNTER | Cyan | Circles area, ambushes nearby boids |
+| **Osprey** | RANDOM_HUNTER | Green | Locks onto random boid, switches periodically |
+
+---
+
+#### Implementation Details
+
+**Files modified**:
+- `boids/predator.py` - Added `HuntingStrategy` enum and strategy methods
+- `boids/flock_optimized.py` - Use `create_with_strategy_index()`
+- `models.py` - Include `strategy` and `strategy_name` in predator data
+- `simulation_manager.py` - Serialize strategy info to frontend
+- `frontend/src/App.tsx` - Species legend, colored danger zones, labels
+
+**New Predator Methods**:
+```python
+update_velocity_toward_straggler()  # Find most isolated boid
+update_velocity_patrol()             # Circle and ambush
+update_velocity_random_target()      # Lock and switch
+update_velocity_by_strategy()        # Dispatch to correct method
+```
+
+**Tests**: 23/23 passing (test_predator_strategies.py)
+
+**Visual Enhancements**:
+- Species-colored danger zones
+- Name labels above each predator
+- Species legend in control panel
+
+**Status**: ✅ Complete
+
+---
+
 ## Quick Start
 
 ### Backend
@@ -920,7 +1074,7 @@ npm run dev
 
 ---
 
-*Document Version: 3.0*
+*Document Version: 5.0*
 *Last Updated: January 2026*
-*Status: Optional Enhancements in Progress*
-*Issues Resolved: WebSocket disconnection, TypeScript config compatibility*
+*Status: Optional Enhancements Complete (Obstacles + Predator Species)*
+*Total Tests: 234 passing*
