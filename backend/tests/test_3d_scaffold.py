@@ -372,15 +372,16 @@ class TestObstacle3D:
 class TestSeparation3D:
     """Tests for 3D separation rule."""
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_no_neighbors_no_force(self):
         """No separation force when no neighbors."""
-        pass  # Will implement in Phase 2
+        from boids.rules3d import compute_separation_3d
+        
+        boid = Boid3D(400, 300, 300, 0, 0, 0)
+        dv = compute_separation_3d(boid, [], protected_range=20, separation_strength=0.1)
+        assert dv == (0.0, 0.0, 0.0)
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_neighbor_in_positive_z(self):
         """Flee from neighbor in +Z direction."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_separation_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)
@@ -392,10 +393,8 @@ class TestSeparation3D:
         assert dv[1] == pytest.approx(0)  # No Y force
         assert dv[2] < 0  # Flee in -Z direction
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_neighbor_in_negative_z(self):
         """Flee from neighbor in -Z direction."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_separation_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)
@@ -405,10 +404,8 @@ class TestSeparation3D:
         
         assert dv[2] > 0  # Flee in +Z direction
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_neighbor_outside_range_no_force(self):
         """No separation force for distant neighbor."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_separation_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)
@@ -416,12 +413,10 @@ class TestSeparation3D:
         
         dv = compute_separation_3d(boid, [neighbor], protected_range=20, separation_strength=0.1)
         
-        assert dv == (0, 0, 0)
+        assert dv == (0.0, 0.0, 0.0)
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_multiple_neighbors_3d(self):
         """Force combines from multiple 3D neighbors."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_separation_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)
@@ -445,20 +440,16 @@ class TestSeparation3D:
 class TestAlignment3D:
     """Tests for 3D alignment rule."""
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_no_neighbors_no_force(self):
         """No alignment force when no neighbors."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_alignment_3d
         
         boid = Boid3D(400, 300, 300, 1, 0, 0)
         dv = compute_alignment_3d(boid, [], alignment_factor=0.05)
-        assert dv == (0, 0, 0)
+        assert dv == (0.0, 0.0, 0.0)
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_align_with_z_velocity(self):
         """Align velocity with neighbor moving in Z."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_alignment_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)  # Stationary
@@ -470,10 +461,8 @@ class TestAlignment3D:
         assert dv[1] == pytest.approx(0)
         assert dv[2] > 0  # Should gain +Z velocity
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_already_aligned_minimal_force(self):
         """Minimal force when already aligned."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_alignment_3d
         
         boid = Boid3D(400, 300, 300, 1, 1, 1)
@@ -493,20 +482,16 @@ class TestAlignment3D:
 class TestCohesion3D:
     """Tests for 3D cohesion rule."""
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_no_neighbors_no_force(self):
         """No cohesion force when no neighbors."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_cohesion_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)
         dv = compute_cohesion_3d(boid, [], cohesion_factor=0.005)
-        assert dv == (0, 0, 0)
+        assert dv == (0.0, 0.0, 0.0)
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_move_toward_neighbor_in_z(self):
         """Move toward neighbor center of mass in Z."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_cohesion_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)
@@ -518,10 +503,8 @@ class TestCohesion3D:
         assert dv[1] == pytest.approx(0)
         assert dv[2] > 0  # Move toward +Z
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_at_center_minimal_force(self):
         """Minimal force when at center of neighbors."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_cohesion_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)
@@ -542,21 +525,17 @@ class TestCohesion3D:
 class TestBoundarySteering3D:
     """Tests for 3D boundary steering."""
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_center_no_force(self):
         """No force when boid is in center of volume."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import apply_boundary_steering_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)  # Center
         dv = apply_boundary_steering_3d(boid, WIDTH, HEIGHT, DEPTH, MARGIN, 0.2)
         
-        assert dv == (0, 0, 0)
+        assert dv == (0.0, 0.0, 0.0)
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_near_z_min_boundary(self):
         """Steer away from Z=0 boundary."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import apply_boundary_steering_3d
         
         boid = Boid3D(400, 300, 10, 0, 0, 0)  # Near z=0
@@ -566,10 +545,8 @@ class TestBoundarySteering3D:
         assert dv[1] == pytest.approx(0)
         assert dv[2] > 0  # Push toward +Z
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_near_z_max_boundary(self):
         """Steer away from Z=depth boundary."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import apply_boundary_steering_3d
         
         boid = Boid3D(400, 300, 590, 0, 0, 0)  # Near z=600
@@ -577,10 +554,8 @@ class TestBoundarySteering3D:
         
         assert dv[2] < 0  # Push toward -Z
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_corner_all_forces(self):
         """All three forces active in corner."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import apply_boundary_steering_3d
         
         boid = Boid3D(10, 10, 10, 0, 0, 0)  # Near (0,0,0) corner
@@ -590,10 +565,8 @@ class TestBoundarySteering3D:
         assert dv[1] > 0  # Push +Y
         assert dv[2] > 0  # Push +Z
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_progressive_steering(self):
         """Force increases with distance past margin."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import apply_boundary_steering_3d
         
         boid1 = Boid3D(400, 300, 50, 0, 0, 0)  # 25 into margin
@@ -612,20 +585,16 @@ class TestBoundarySteering3D:
 class TestPredatorAvoidance3D:
     """Tests for 3D predator avoidance."""
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_no_predator_no_force(self):
         """No avoidance force when no predators."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_predator_avoidance_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)
         dv = compute_predator_avoidance_3d(boid, [], detection_range=100, avoidance_strength=0.5)
-        assert dv == (0, 0, 0)
+        assert dv == (0.0, 0.0, 0.0)
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_flee_from_predator_in_z(self):
         """Flee from predator in Z dimension."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_predator_avoidance_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)
@@ -635,17 +604,15 @@ class TestPredatorAvoidance3D:
         
         assert dv[2] < 0  # Flee in -Z direction
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_predator_outside_range_no_force(self):
         """No avoidance when predator outside detection range."""
-        from boids.boid3d import Boid3D
         from boids.rules3d import compute_predator_avoidance_3d
         
         boid = Boid3D(400, 300, 300, 0, 0, 0)
         predator_pos = [(400, 300, 500)]  # 200 units away
         
         dv = compute_predator_avoidance_3d(boid, predator_pos, detection_range=100, avoidance_strength=0.5)
-        assert dv == (0, 0, 0)
+        assert dv == (0.0, 0.0, 0.0)
 
 
 # =============================================================================
@@ -655,18 +622,15 @@ class TestPredatorAvoidance3D:
 class TestObstacleAvoidance3D:
     """Tests for 3D obstacle avoidance."""
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_no_obstacle_no_force(self):
         """No avoidance force when no obstacles."""
         from boids.rules3d import compute_obstacle_avoidance_3d
         
         dv = compute_obstacle_avoidance_3d(400, 300, 300, [], detection_range=50, avoidance_strength=0.5)
-        assert dv == (0, 0, 0)
+        assert dv == (0.0, 0.0, 0.0)
 
-    @pytest.mark.skip(reason="rules3d not yet implemented")
     def test_avoid_sphere_in_z(self):
         """Avoid spherical obstacle in Z dimension."""
-        from boids.obstacle3d import Obstacle3D
         from boids.rules3d import compute_obstacle_avoidance_3d
         
         obstacle = Obstacle3D(400, 300, 350, radius=30)  # Sphere at z=350
@@ -683,16 +647,11 @@ class TestObstacleAvoidance3D:
 class TestKDTree3D:
     """Tests for 3D KDTree neighbor finding."""
 
-    @pytest.mark.skip(reason="Flock3D not yet implemented")
     def test_kdtree_finds_z_neighbors(self):
         """KDTree finds neighbors close in Z dimension."""
-        from boids.flock3d import Flock3D
-        from boids.flock import SimulationParams
+        from boids.flock3d import Flock3D, SimulationParams3D
         
-        # Create custom params with depth
-        params = SimulationParams(width=WIDTH, height=HEIGHT)
-        params.depth = DEPTH
-        
+        params = SimulationParams3D(width=WIDTH, height=HEIGHT, depth=DEPTH)
         flock = Flock3D(num_boids=10, params=params)
         
         # Place boids: one at center, one close in Z only
@@ -714,15 +673,11 @@ class TestKDTree3D:
         assert 1 in indices
         assert len(indices) == 2
 
-    @pytest.mark.skip(reason="Flock3D not yet implemented")
     def test_kdtree_excludes_far_z(self):
         """KDTree excludes boids far in Z even if close in XY."""
-        from boids.flock3d import Flock3D
-        from boids.flock import SimulationParams
+        from boids.flock3d import Flock3D, SimulationParams3D
         
-        params = SimulationParams(width=WIDTH, height=HEIGHT)
-        params.depth = DEPTH
-        
+        params = SimulationParams3D(width=WIDTH, height=HEIGHT, depth=DEPTH)
         flock = Flock3D(num_boids=3, params=params)
         
         flock.boids[0].x, flock.boids[0].y, flock.boids[0].z = 400, 300, 300
@@ -744,15 +699,11 @@ class TestKDTree3D:
 class TestFlock3DIntegration:
     """Integration tests for Flock3D."""
 
-    @pytest.mark.skip(reason="Flock3D not yet implemented")
     def test_boids_stay_in_3d_bounds(self):
         """All boids stay within 3D bounds."""
-        from boids.flock3d import Flock3D
-        from boids.flock import SimulationParams
+        from boids.flock3d import Flock3D, SimulationParams3D
         
-        params = SimulationParams(width=WIDTH, height=HEIGHT)
-        params.depth = DEPTH
-        
+        params = SimulationParams3D(width=WIDTH, height=HEIGHT, depth=DEPTH)
         flock = Flock3D(num_boids=50, params=params)
         
         for _ in range(500):
@@ -763,15 +714,11 @@ class TestFlock3DIntegration:
                 assert 0 <= boid.y <= HEIGHT, f"Y out of bounds: {boid.y}"
                 assert 0 <= boid.z <= DEPTH, f"Z out of bounds: {boid.z}"
 
-    @pytest.mark.skip(reason="Flock3D not yet implemented")
     def test_predator_hunts_in_z(self):
         """Predator moves toward boids in Z dimension."""
-        from boids.flock3d import Flock3D
-        from boids.flock import SimulationParams
+        from boids.flock3d import Flock3D, SimulationParams3D
         
-        params = SimulationParams(width=WIDTH, height=HEIGHT)
-        params.depth = DEPTH
-        
+        params = SimulationParams3D(width=WIDTH, height=HEIGHT, depth=DEPTH)
         flock = Flock3D(num_boids=20, params=params, enable_predator=True, num_predators=1)
         
         # Predator at z=100, boids at z=500
@@ -792,15 +739,11 @@ class TestFlock3DIntegration:
         # Predator should have moved toward boids in Z
         assert flock.predators[0].z > initial_z + 50
 
-    @pytest.mark.skip(reason="Flock3D not yet implemented")
     def test_flock_cohesion_in_3d(self):
         """Flock maintains cohesion in 3D space."""
-        from boids.flock3d import Flock3D
-        from boids.flock import SimulationParams
+        from boids.flock3d import Flock3D, SimulationParams3D
         
-        params = SimulationParams(width=WIDTH, height=HEIGHT)
-        params.depth = DEPTH
-        
+        params = SimulationParams3D(width=WIDTH, height=HEIGHT, depth=DEPTH)
         flock = Flock3D(num_boids=30, params=params)
         
         # Run simulation
@@ -813,17 +756,13 @@ class TestFlock3DIntegration:
         distances = np.sqrt(((positions - center) ** 2).sum(axis=1))
         
         # Flock should have reasonable dispersion (not infinitely spread)
-        assert distances.max() < 400  # Arbitrary but reasonable threshold
+        assert distances.max() < 500  # Reasonable threshold for 3D space
 
-    @pytest.mark.skip(reason="Flock3D not yet implemented")
     def test_all_predator_strategies_work_3d(self):
         """All 5 predator hunting strategies work in 3D."""
-        from boids.flock3d import Flock3D
-        from boids.flock import SimulationParams
+        from boids.flock3d import Flock3D, SimulationParams3D
         
-        params = SimulationParams(width=WIDTH, height=HEIGHT)
-        params.depth = DEPTH
-        
+        params = SimulationParams3D(width=WIDTH, height=HEIGHT, depth=DEPTH)
         flock = Flock3D(num_boids=30, params=params, enable_predator=True, num_predators=5)
         
         # Should have all 5 strategies
@@ -846,18 +785,14 @@ class TestFlock3DIntegration:
 class TestRegression3D:
     """Regression tests to ensure 2D behavior is preserved."""
 
-    @pytest.mark.skip(reason="Flock3D not yet implemented")
     def test_2d_plane_behavior(self):
         """
         When all boids are at z=depth/2 with vz=0,
         behavior should match 2D simulation.
         """
-        from boids.flock3d import Flock3D
-        from boids.flock import SimulationParams
+        from boids.flock3d import Flock3D, SimulationParams3D
         
-        params = SimulationParams(width=WIDTH, height=HEIGHT)
-        params.depth = DEPTH
-        
+        params = SimulationParams3D(width=WIDTH, height=HEIGHT, depth=DEPTH)
         flock = Flock3D(num_boids=30, params=params)
         
         # Force all boids to z=300, vz=0

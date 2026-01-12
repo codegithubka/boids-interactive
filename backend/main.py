@@ -18,6 +18,7 @@ from models import (
     ResetMessage,
     PauseMessage,
     ResumeMessage,
+    SetModeMessage,
     ParamsSyncMessage,
     ErrorMessage,
 )
@@ -159,6 +160,15 @@ async def handle_message(
     elif isinstance(message, ResumeMessage):
         manager.resume()
 
+    elif isinstance(message, SetModeMessage):
+        manager.set_mode(message.mode)
+        await websocket.send_json({
+            "type": MessageType.MODE_CHANGED,
+            "mode": manager.mode
+        })
+        sync = ParamsSyncMessage(params=manager.get_params_dict())
+        await websocket.send_json(sync.model_dump())
+
 
 async def handle_obstacle_message(
     websocket: WebSocket,
@@ -175,8 +185,9 @@ async def handle_obstacle_message(
     if msg_type == MessageType.ADD_OBSTACLE:
         x = data.get("x", 400)
         y = data.get("y", 300)
+        z = data.get("z")  # Optional, only used in 3D
         radius = data.get("radius", 30)
-        result = manager.add_obstacle(x, y, radius)
+        result = manager.add_obstacle(x, y, radius, z)
         await websocket.send_json({
             "type": MessageType.OBSTACLE_ADDED,
             **result

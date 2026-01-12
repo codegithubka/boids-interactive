@@ -21,6 +21,15 @@ from .metrics import (
 from .boid3d import Boid3D, distance_3d
 from .predator3d import Predator3D
 from .obstacle3d import Obstacle3D, create_obstacle_field_3d
+from .flock3d import Flock3D, SimulationParams3D
+from .rules3d import (
+    compute_separation_3d,
+    compute_alignment_3d,
+    compute_cohesion_3d,
+    apply_boundary_steering_3d,
+    compute_predator_avoidance_3d,
+    compute_obstacle_avoidance_3d,
+)
 
 __all__ = [
     # 2D classes
@@ -42,4 +51,12 @@ __all__ = [
     "Predator3D",
     "Obstacle3D",
     "create_obstacle_field_3d",
+    "Flock3D",
+    "SimulationParams3D",
+    "compute_separation_3d",
+    "compute_alignment_3d",
+    "compute_cohesion_3d",
+    "apply_boundary_steering_3d",
+    "compute_predator_avoidance_3d",
+    "compute_obstacle_avoidance_3d",
 ]

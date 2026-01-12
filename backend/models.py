@@ -12,7 +12,9 @@ from config import (
     PARAM_DEFINITIONS,
     DEFAULT_PARAMS,
     VALID_PRESETS,
+    VALID_MODES,
     MessageType,
+    SimulationMode,
 )
 
 
@@ -123,6 +125,25 @@ class SimulationParams(BaseModel):
         description="Number of predators (1-5)"
     )
 
+    # 3D parameters
+    simulation_mode: str = Field(
+        default=DEFAULT_PARAMS["simulation_mode"],
+        description="Simulation mode: '2d' or '3d'"
+    )
+    depth: float = Field(
+        default=DEFAULT_PARAMS["depth"],
+        ge=PARAM_DEFINITIONS["depth"].min,
+        le=PARAM_DEFINITIONS["depth"].max,
+        description="Z-axis bounds for 3D mode"
+    )
+
+    @model_validator(mode='after')
+    def validate_simulation_mode(self):
+        """Ensure simulation mode is valid."""
+        if self.simulation_mode not in VALID_MODES:
+            raise ValueError(f"Invalid mode: {self.simulation_mode}. Valid: {VALID_MODES}")
+        return self
+
     @model_validator(mode='after')
     def validate_speed_range(self):
         """Ensure min_speed <= max_speed."""
@@ -182,6 +203,19 @@ class ResumeMessage(BaseModel):
     type: Literal["resume"] = MessageType.RESUME
 
 
+class SetModeMessage(BaseModel):
+    """Message to switch between 2D and 3D mode."""
+    type: Literal["set_mode"] = MessageType.SET_MODE
+    mode: str = Field(description="Mode to switch to: '2d' or '3d'")
+
+    @model_validator(mode='after')
+    def validate_mode(self):
+        """Ensure mode is valid."""
+        if self.mode not in VALID_MODES:
+            raise ValueError(f"Invalid mode: {self.mode}. Valid: {VALID_MODES}")
+        return self
+
+
 # =============================================================================
 # WebSocket Messages: Server -> Client
 # =============================================================================
@@ -207,24 +241,33 @@ class FrameData(BaseModel):
     """Frame data sent to client each tick."""
     type: Literal["frame"] = MessageType.FRAME
     frame_id: int = Field(description="Frame sequence number")
+    mode: str = Field(
+        default=SimulationMode.MODE_2D,
+        description="Simulation mode: '2d' or '3d'"
+    )
     boids: List[List[float]] = Field(
-        description="List of [x, y, vx, vy] for each boid"
+        description="List of [x, y, vx, vy] (2D) or [x, y, z, vx, vy, vz] (3D) for each boid"
     )
     predator: Optional[List[float]] = Field(
         default=None,
-        description="[x, y, vx, vy] of first predator (backward compat)"
+        description="[x, y, vx, vy] of first predator (backward compat, 2D only)"
     )
     predators: List[Dict[str, Any]] = Field(
         default_factory=list,
-        description="List of {x, y, vx, vy, strategy} for each predator"
+        description="List of predator data with position, velocity, strategy"
     )
     obstacles: List[List[float]] = Field(
         default_factory=list,
-        description="List of [x, y, radius] for each obstacle"
+        description="List of [x, y, radius] (2D) or [x, y, z, radius] (3D) for each obstacle"
     )
     metrics: Optional[FrameMetrics] = Field(
         default=None,
         description="Metrics when predator is active"
+    )
+    # 3D-specific bounds (sent only in 3D mode)
+    bounds: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Simulation bounds {width, height, depth} for 3D mode"
     )
 
 
@@ -265,6 +308,8 @@ def parse_client_message(data: Dict[str, Any]) -> Optional[BaseModel]:
             return PauseMessage(**data)
         elif msg_type == MessageType.RESUME:
             return ResumeMessage(**data)
+        elif msg_type == MessageType.SET_MODE:
+            return SetModeMessage(**data)
         else:
             return None
     except Exception:

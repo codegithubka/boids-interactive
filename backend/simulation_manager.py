@@ -1,22 +1,26 @@
 """
 Simulation Manager for the Boids Interactive Demo.
 
-Wraps FlockOptimized, handles parameter updates, and produces frame data
-for WebSocket streaming.
+Wraps FlockOptimized (2D) or Flock3D (3D), handles parameter updates, 
+and produces frame data for WebSocket streaming.
 """
 
 import time
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 
 import numpy as np
 
 from boids import FlockOptimized, SimulationParams as FlockSimParams
+from boids.flock3d import Flock3D, SimulationParams3D
 from boids.metrics import (
     compute_avg_distance_to_predator,
     compute_min_distance_to_predator,
     compute_flock_cohesion,
 )
-from config import SIMULATION_WIDTH, SIMULATION_HEIGHT, TARGET_FPS, DEFAULT_PARAMS
+from config import (
+    SIMULATION_WIDTH, SIMULATION_HEIGHT, SIMULATION_DEPTH, 
+    TARGET_FPS, DEFAULT_PARAMS, SimulationMode
+)
 from models import SimulationParams, FrameData, FrameMetrics
 
 
@@ -25,11 +29,12 @@ class SimulationManager:
     Manages simulation state for a single client.
     
     Handles:
-    - Flock initialization and updates
+    - Flock initialization and updates (2D or 3D)
     - Parameter changes (with flock recreation when needed)
     - Frame data serialization
     - Pause/resume functionality
     - FPS tracking
+    - Mode switching (2D <-> 3D)
     """
 
     def __init__(
@@ -46,7 +51,7 @@ class SimulationManager:
         """
         self._params = params or SimulationParams()
         self._seed = seed
-        self._flock: Optional[FlockOptimized] = None
+        self._flock: Optional[Union[FlockOptimized, Flock3D]] = None
         self._frame_id: int = 0
         self._paused: bool = False
         self._running: bool = False
@@ -59,12 +64,23 @@ class SimulationManager:
         # Initialize flock
         self._init_flock()
 
+    @property
+    def is_3d(self) -> bool:
+        """Whether simulation is in 3D mode."""
+        return self._params.simulation_mode == SimulationMode.MODE_3D
+
     def _init_flock(self) -> None:
         """Create flock from current parameters."""
         if self._seed is not None:
             np.random.seed(self._seed)
         
-        # Convert our params to FlockSimParams
+        if self.is_3d:
+            self._init_flock_3d()
+        else:
+            self._init_flock_2d()
+
+    def _init_flock_2d(self) -> None:
+        """Create 2D flock from current parameters."""
         flock_params = FlockSimParams(
             width=SIMULATION_WIDTH,
             height=SIMULATION_HEIGHT,
@@ -84,6 +100,37 @@ class SimulationManager:
         )
         
         self._flock = FlockOptimized(
+            num_boids=self._params.num_boids,
+            params=flock_params,
+            enable_predator=self._params.predator_enabled,
+            num_predators=self._params.num_predators
+        )
+
+    def _init_flock_3d(self) -> None:
+        """Create 3D flock from current parameters."""
+        flock_params = SimulationParams3D(
+            width=SIMULATION_WIDTH,
+            height=SIMULATION_HEIGHT,
+            depth=self._params.depth,
+            num_boids=self._params.num_boids,
+            visual_range=self._params.visual_range,
+            protected_range=self._params.protected_range,
+            max_speed=self._params.max_speed,
+            min_speed=self._params.min_speed,
+            cohesion_factor=self._params.cohesion_factor,
+            alignment_factor=self._params.alignment_factor,
+            separation_strength=self._params.separation_strength,
+            margin=self._params.margin,
+            turn_factor=self._params.turn_factor,
+            predator_speed=self._params.predator_speed,
+            predator_avoidance_strength=self._params.predator_avoidance_strength,
+            predator_detection_range=self._params.predator_detection_range,
+            predator_hunting_strength=self._params.predator_hunting_strength,
+            enable_predator=self._params.predator_enabled,
+            num_predators=self._params.num_predators,
+        )
+        
+        self._flock = Flock3D(
             num_boids=self._params.num_boids,
             params=flock_params,
             enable_predator=self._params.predator_enabled,
@@ -162,6 +209,12 @@ class SimulationManager:
         Args:
             updates: Dictionary of parameter updates (partial)
         """
+        # Check if mode changed (requires full recreation)
+        mode_changed = (
+            'simulation_mode' in updates and 
+            updates['simulation_mode'] != self._params.simulation_mode
+        )
+        
         # Check if num_boids changed (requires flock recreation)
         needs_recreation = (
             'num_boids' in updates and updates['num_boids'] != self._params.num_boids
@@ -173,6 +226,10 @@ class SimulationManager:
         num_predators_changed = (
             'num_predators' in updates and
             updates['num_predators'] != self._params.num_predators
+        )
+        depth_changed = (
+            'depth' in updates and
+            updates['depth'] != self._params.depth
         )
         
         # Apply updates to params
@@ -186,24 +243,43 @@ class SimulationManager:
             # If validation fails, keep old params
             return
         
-        if needs_recreation:
+        # Mode change requires full recreation
+        if mode_changed or (depth_changed and self.is_3d):
+            self._init_flock()
+        elif needs_recreation:
             # Full recreation needed for num_boids change
             self._init_flock()
         elif predator_toggled:
             # Toggle predator without full recreation
             if self._params.predator_enabled:
-                self._flock.set_num_predators(self._params.num_predators)
+                self._set_num_predators(self._params.num_predators)
             else:
-                self._flock.set_num_predators(0)
+                self._set_num_predators(0)
         elif num_predators_changed and self._params.predator_enabled:
             # Update number of predators
-            self._flock.set_num_predators(self._params.num_predators)
+            self._set_num_predators(self._params.num_predators)
         else:
             # Update flock params in place
             self._update_flock_params()
 
+    def _set_num_predators(self, count: int) -> None:
+        """Set number of predators (works for both 2D and 3D)."""
+        if self.is_3d:
+            # For 3D, we need to recreate for now
+            # TODO: Add set_num_predators to Flock3D
+            self._init_flock()
+        else:
+            self._flock.set_num_predators(count)
+
     def _update_flock_params(self) -> None:
         """Update flock parameters without recreation."""
+        if self.is_3d:
+            self._update_flock_params_3d()
+        else:
+            self._update_flock_params_2d()
+
+    def _update_flock_params_2d(self) -> None:
+        """Update 2D flock parameters without recreation."""
         self._flock.params.visual_range = self._params.visual_range
         self._flock.params.protected_range = self._params.protected_range
         self._flock.params.max_speed = self._params.max_speed
@@ -217,6 +293,40 @@ class SimulationManager:
         self._flock.params.predator_avoidance_strength = self._params.predator_avoidance_strength
         self._flock.params.predator_detection_range = self._params.predator_detection_range
         self._flock.params.predator_hunting_strength = self._params.predator_hunting_strength
+
+    def _update_flock_params_3d(self) -> None:
+        """Update 3D flock parameters without recreation."""
+        self._flock.params.visual_range = self._params.visual_range
+        self._flock.params.protected_range = self._params.protected_range
+        self._flock.params.max_speed = self._params.max_speed
+        self._flock.params.min_speed = self._params.min_speed
+        self._flock.params.cohesion_factor = self._params.cohesion_factor
+        self._flock.params.alignment_factor = self._params.alignment_factor
+        self._flock.params.separation_strength = self._params.separation_strength
+        self._flock.params.margin = self._params.margin
+        self._flock.params.turn_factor = self._params.turn_factor
+        self._flock.params.predator_speed = self._params.predator_speed
+        self._flock.params.predator_avoidance_strength = self._params.predator_avoidance_strength
+        self._flock.params.predator_detection_range = self._params.predator_detection_range
+        self._flock.params.predator_hunting_strength = self._params.predator_hunting_strength
+
+    def set_mode(self, mode: str) -> None:
+        """
+        Switch simulation mode (2D <-> 3D).
+        
+        Args:
+            mode: '2d' or '3d'
+        """
+        if mode not in [SimulationMode.MODE_2D, SimulationMode.MODE_3D]:
+            raise ValueError(f"Invalid mode: {mode}")
+        
+        if mode != self._params.simulation_mode:
+            self._params = SimulationParams(
+                **{**self._params.to_dict(), 'simulation_mode': mode}
+            )
+            self._frame_id = 0
+            self._fps_samples = []
+            self._init_flock()
 
     def get_params(self) -> SimulationParams:
         """Get current parameters."""
@@ -237,6 +347,13 @@ class SimulationManager:
         Returns:
             FrameData with boids, predators, obstacles, and metrics
         """
+        if self.is_3d:
+            return self._get_frame_data_3d()
+        else:
+            return self._get_frame_data_2d()
+
+    def _get_frame_data_2d(self) -> FrameData:
+        """Get 2D frame data."""
         # Serialize boids: [[x, y, vx, vy], ...]
         boids_data = [
             [b.x, b.y, b.vx, b.vy]
@@ -292,11 +409,59 @@ class SimulationManager:
         
         return FrameData(
             frame_id=self._frame_id,
+            mode=SimulationMode.MODE_2D,
             boids=boids_data,
             predator=predator_data,
             predators=predators_data,
             obstacles=obstacles_data,
             metrics=metrics
+        )
+
+    def _get_frame_data_3d(self) -> FrameData:
+        """Get 3D frame data."""
+        # Serialize boids: [[x, y, z, vx, vy, vz], ...]
+        boids_data = [
+            [b.x, b.y, b.z, b.vx, b.vy, b.vz]
+            for b in self._flock.boids
+        ]
+        
+        # Serialize all predators with strategy info and z coordinates
+        predators_data = [
+            {
+                "x": p.x,
+                "y": p.y,
+                "z": p.z,
+                "vx": p.vx,
+                "vy": p.vy,
+                "vz": p.vz,
+                "strategy": p.strategy.value,
+                "strategy_name": p.strategy_name
+            }
+            for p in self._flock.predators
+        ]
+        
+        # Serialize obstacles (spheres in 3D)
+        obstacles_data = [
+            [obs.x, obs.y, obs.z, obs.radius]
+            for obs in self._flock.obstacles
+        ]
+        
+        # Basic metrics for 3D (predator metrics would need 3D distance functions)
+        metrics = FrameMetrics(fps=round(self._fps, 1))
+        
+        return FrameData(
+            frame_id=self._frame_id,
+            mode=SimulationMode.MODE_3D,
+            boids=boids_data,
+            predator=None,  # No backward compat for 3D
+            predators=predators_data,
+            obstacles=obstacles_data,
+            metrics=metrics,
+            bounds={
+                "width": SIMULATION_WIDTH,
+                "height": SIMULATION_HEIGHT,
+                "depth": self._params.depth
+            }
         )
 
     # =========================================================================
@@ -316,7 +481,14 @@ class SimulationManager:
     @property
     def has_predator(self) -> bool:
         """Whether predator is active."""
+        if self.is_3d:
+            return len(self._flock.predators) > 0
         return self._flock.predator is not None
+
+    @property
+    def mode(self) -> str:
+        """Current simulation mode."""
+        return self._params.simulation_mode
 
     @property
     def fps(self) -> float:
@@ -327,7 +499,7 @@ class SimulationManager:
     # Obstacle Management
     # =========================================================================
 
-    def add_obstacle(self, x: float, y: float, radius: float = 30.0) -> Dict[str, Any]:
+    def add_obstacle(self, x: float, y: float, radius: float = 30.0, z: float = None) -> Dict[str, Any]:
         """
         Add an obstacle to the simulation.
         
@@ -335,18 +507,35 @@ class SimulationManager:
             x: X position (center)
             y: Y position (center)
             radius: Obstacle radius
+            z: Z position (center) - only used in 3D mode
             
         Returns:
             Dictionary with obstacle data and index
         """
-        obstacle = self._flock.add_obstacle(x, y, radius)
-        index = len(self._flock.obstacles) - 1
-        return {
-            'index': index,
-            'x': obstacle.x,
-            'y': obstacle.y,
-            'radius': obstacle.radius
-        }
+        if self.is_3d:
+            from boids.obstacle3d import Obstacle3D
+            # Default z to center of depth if not provided
+            if z is None:
+                z = self._params.depth / 2
+            obstacle = Obstacle3D(x, y, z, radius)
+            self._flock.add_obstacle(obstacle)
+            index = len(self._flock.obstacles) - 1
+            return {
+                'index': index,
+                'x': obstacle.x,
+                'y': obstacle.y,
+                'z': obstacle.z,
+                'radius': obstacle.radius
+            }
+        else:
+            obstacle = self._flock.add_obstacle(x, y, radius)
+            index = len(self._flock.obstacles) - 1
+            return {
+                'index': index,
+                'x': obstacle.x,
+                'y': obstacle.y,
+                'radius': obstacle.radius
+            }
 
     def remove_obstacle(self, index: int) -> bool:
         """
@@ -358,6 +547,9 @@ class SimulationManager:
         Returns:
             True if removed, False if invalid index
         """
+        if self.is_3d:
+            self._flock.remove_obstacle(index)
+            return True
         return self._flock.remove_obstacle(index)
 
     def clear_obstacles(self) -> int:
@@ -367,6 +559,10 @@ class SimulationManager:
         Returns:
             Number of obstacles removed
         """
+        if self.is_3d:
+            count = len(self._flock.obstacles)
+            self._flock.clear_obstacles()
+            return count
         return self._flock.clear_obstacles()
 
     def get_obstacles(self) -> List[Dict[str, Any]]:
@@ -376,6 +572,11 @@ class SimulationManager:
         Returns:
             List of obstacle dictionaries
         """
+        if self.is_3d:
+            return [
+                {'x': obs.x, 'y': obs.y, 'z': obs.z, 'radius': obs.radius}
+                for obs in self._flock.obstacles
+            ]
         return [
             {'x': obs.x, 'y': obs.y, 'radius': obs.radius}
             for obs in self._flock.obstacles

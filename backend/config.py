@@ -15,7 +15,21 @@ from typing import Dict, Tuple, Any
 
 SIMULATION_WIDTH: int = 800
 SIMULATION_HEIGHT: int = 600
+SIMULATION_DEPTH: int = 600  # Z-axis bounds for 3D mode
 TARGET_FPS: int = 60
+
+
+# =============================================================================
+# Simulation Modes
+# =============================================================================
+
+class SimulationMode:
+    """Simulation dimension modes."""
+    MODE_2D = "2d"
+    MODE_3D = "3d"
+
+
+VALID_MODES = [SimulationMode.MODE_2D, SimulationMode.MODE_3D]
 
 
 # =============================================================================
@@ -95,16 +109,16 @@ PARAM_DEFINITIONS: Dict[str, ParamLimit] = {
         description="How strongly boids match neighbor velocities"
     ),
     "max_speed": ParamLimit(
-        min=1.0, max=8.0, default=5.0, step=0.5,
+        min=1.0, max=8.0, default=3.0, step=0.5,
         category="advanced",
         label="Max Speed",
         description="Maximum boid speed (pixels/frame)"
     ),
     "min_speed": ParamLimit(
-        min=0.5, max=4.0, default=2.0, step=0.5,
+        min=0.0, max=4.0, default=0.0, step=0.25,
         category="advanced",
         label="Min Speed",
-        description="Minimum boid speed (pixels/frame)"
+        description="Minimum boid speed - set to 0 for natural deceleration"
     ),
     "margin": ParamLimit(
         min=20, max=150, default=75, step=5,
@@ -136,6 +150,20 @@ PARAM_DEFINITIONS: Dict[str, ParamLimit] = {
         label="Number of Predators",
         description="Number of predators in simulation (1-5)"
     ),
+
+    # 3D parameters
+    "simulation_mode": ParamLimit(
+        min=0, max=1, default=0, step=1,  # 0=2D, 1=3D (stored as string in actual use)
+        category="advanced",
+        label="Simulation Mode",
+        description="2D or 3D simulation mode"
+    ),
+    "depth": ParamLimit(
+        min=200, max=1200, default=600, step=50,
+        category="advanced",
+        label="Depth",
+        description="Z-axis bounds for 3D mode (pixels)"
+    ),
 }
 
 
@@ -149,6 +177,9 @@ DEFAULT_PARAMS: Dict[str, Any] = {
 
 # Convert predator_enabled to boolean
 DEFAULT_PARAMS["predator_enabled"] = bool(DEFAULT_PARAMS["predator_enabled"])
+
+# Set simulation_mode as string
+DEFAULT_PARAMS["simulation_mode"] = SimulationMode.MODE_2D
 
 
 # =============================================================================
@@ -223,6 +254,7 @@ class MessageType:
     ADD_OBSTACLE = "add_obstacle"
     REMOVE_OBSTACLE = "remove_obstacle"
     CLEAR_OBSTACLES = "clear_obstacles"
+    SET_MODE = "set_mode"  # Switch between 2D and 3D
 
     # Server -> Client
     FRAME = "frame"
@@ -230,6 +262,7 @@ class MessageType:
     OBSTACLE_ADDED = "obstacle_added"
     OBSTACLE_REMOVED = "obstacle_removed"
     OBSTACLES_CLEARED = "obstacles_cleared"
+    MODE_CHANGED = "mode_changed"
     ERROR = "error"
 
 
