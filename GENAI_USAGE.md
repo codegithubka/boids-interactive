@@ -28,12 +28,14 @@ This document tracks the development of an interactive web-based Boids simulatio
 | 12.7 | Predator Species | ✅ Complete | 23 |
 | 12.8 | Boundary Regression Fix | ✅ Complete | 19 |
 | 12.9 | Hunting Improvements | ✅ Complete | 34 |
+| 12.10 | Min Speed Slider | ✅ Complete | — |
 | 13 | Performance Optimization | ⏳ Planned | — |
+| 14 | 3D Implementation | ✅ Phase 1-4 | 70 |
 
-**Total Backend Tests**: 287 passing
-**Backend Status**: ✅ Complete + Enhancements complete
-**Frontend Status**: ✅ Complete
-**Project Status**: ✅ Optional Enhancements Complete
+**Total Backend Tests**: 357 passing
+**Backend Status**: ✅ Complete + 3D Backend/API Complete
+**Frontend Status**: ✅ Complete (2D), ⏳ 3D Pending
+**Project Status**: ✅ 3D Backend Complete, Frontend Next
 
 ---
 
@@ -592,13 +594,14 @@ All steps completed successfully.
 | `tests/test_models.py` | ✅ | 36 | Models tests |
 | `tests/test_simulation.py` | ✅ | 33 | Simulation tests |
 | `tests/test_presets.py` | ✅ | 22 | Presets tests |
-| `tests/test_websocket.py` | ✅ | 15 | WebSocket tests |
+| `tests/test_websocket.py` | ✅ | 34 | WebSocket tests (incl. 3D) |
 | `tests/test_obstacle.py` | ✅ | 21 | Obstacle tests |
 | `tests/test_flock_obstacles.py` | ✅ | 13 | Flock obstacle integration tests |
 | `tests/test_multi_predator.py` | ✅ | 23 | Multiple predator tests |
 | `tests/test_predator_strategies.py` | ✅ | 23 | Hunting strategy tests |
 | `tests/test_boundary_regression.py` | ✅ | 19 | Boundary regression tests |
 | `tests/test_hunting_improvements.py` | ✅ | 34 | Hunting improvement tests |
+| `tests/test_3d_scaffold.py` | ✅ | 65 | 3D simulation tests |
 
 ### Frontend (Complete ✅ — Simplified Architecture)
 
@@ -1142,6 +1145,132 @@ select_target_avoiding_edges(...)     # Smart target selection
 
 ---
 
+### Step 12.10: Min Speed Slider & Natural Deceleration
+
+**Problem**: Movement felt "jerky" compared to simpler boid implementations. The forced minimum speed prevented natural coasting and deceleration.
+
+**Solution**: 
+- Changed `min_speed` default from 2.0 to **0.0**
+- Added UI slider for `min_speed` (0.0 - 4.0)
+- Updated `enforce_speed_limits()` to skip min enforcement when `min_speed=0`
+
+**Comparison with Simple Demo**:
+| Parameter | Simple Demo | Our Default (New) |
+|-----------|-------------|-------------------|
+| Min Speed | None (0) | **0** (was 2.0) |
+| Max Speed | 15 | 3.0 |
+
+**Code Changes**:
+```python
+# enforce_speed_limits now allows natural deceleration
+if speed == 0:
+    if self.params.min_speed > 0:
+        # Give random direction at minimum speed
+        ...
+    # If min_speed=0, allow boid to stay still
+    return
+
+elif speed < self.params.min_speed and self.params.min_speed > 0:
+    # Only enforce if min_speed > 0
+    ...
+```
+
+**Result**: Smoother, more natural flocking movement. Boids can coast, glide through turns, and accelerate organically.
+
+**Status**: ✅ Complete
+
+---
+
+### Step 14: 3D Implementation (In Progress)
+
+**Goal**: Transform 2D boids simulation into full 3D experience with Three.js.
+
+#### Phase 1: Backend 3D Core ✅ COMPLETE
+
+**New Files Created**:
+| File | Description | Tests |
+|------|-------------|-------|
+| `boids/boid3d.py` | 3D boid class with x,y,z position and velocity | 12 |
+| `boids/predator3d.py` | 3D predator with all hunting strategies | 13 |
+| `boids/obstacle3d.py` | Spherical obstacles in 3D space | 8 |
+| `tests/test_3d_scaffold.py` | Comprehensive 3D test suite | 65 pass |
+
+**Key Features Implemented**:
+- `Boid3D`: Full 3D position/velocity, uniform spherical random direction
+- `Predator3D`: All 5 hunting strategies ready for 3D, cooldown/catch mechanics
+- `Obstacle3D`: Spherical obstacles with collision detection
+- `distance_3d()`: 3D Euclidean distance function
+- `create_obstacle_field_3d()`: Non-overlapping obstacle placement
+
+#### Phase 2: 3D Physics Rules ✅ COMPLETE
+
+**New File**: `boids/rules3d.py`
+
+**Implemented Functions**:
+- `compute_separation_3d()`: Flee from nearby boids in 3D
+- `compute_alignment_3d()`: Match velocity with neighbors in 3D
+- `compute_cohesion_3d()`: Move toward flock center in 3D
+- `apply_boundary_steering_3d()`: Stay within 6-face bounding box
+- `compute_predator_avoidance_3d()`: Flee from predators in 3D
+- `compute_obstacle_avoidance_3d()`: Avoid spherical obstacles
+
+#### Phase 3: Flock3D Manager ✅ COMPLETE
+
+**New Files**:
+| File | Description |
+|------|-------------|
+| `boids/flock3d.py` | Full 3D flock simulation manager |
+
+**Key Features**:
+- `Flock3D`: Complete 3D simulation with KDTree spatial queries
+- `SimulationParams3D`: 3D-specific parameters including depth
+- All 5 hunting strategies working in 3D (Hawk, Falcon, Eagle, Kite, Osprey)
+- Full boundary enforcement on all 6 faces
+- Obstacle avoidance for spherical obstacles
+- Integration with all hunting improvements (timeout, catch, cooldown, edge avoidance)
+
+**Tests**: 65/65 3D tests passing
+
+#### Remaining Phases
+
+| Phase | Task | Status |
+|-------|------|--------|
+| 4 | API & WebSocket Updates | ✅ COMPLETE |
+| 5 | Frontend Three.js Setup | ⏳ Pending |
+| 6 | Frontend Boid Rendering | ⏳ Pending |
+| 7 | Frontend Polish | ⏳ Pending |
+| 8 | Testing & Documentation | ⏳ Pending |
+
+#### Phase 4: API & WebSocket Updates ✅ COMPLETE
+
+**Updated Files**:
+- `config.py`: Added `SIMULATION_DEPTH`, `SimulationMode`, `VALID_MODES`, `simulation_mode` and `depth` parameters
+- `models.py`: Added `simulation_mode`, `depth` to `SimulationParams`, updated `FrameData` for 3D format
+- `simulation_manager.py`: Full 3D support with mode switching, 3D frame serialization
+- `main.py`: Added `set_mode` message handler
+
+**New Features**:
+- `set_mode` WebSocket message to switch between 2D and 3D
+- `mode_changed` response message
+- 3D frame format: `[x, y, z, vx, vy, vz]` for boids
+- 3D predator format with z coordinates
+- 3D obstacle format: `[x, y, z, radius]`
+- `bounds` field in 3D frames with `{width, height, depth}`
+- Backward-compatible 2D format preserved
+
+**New Tests**: 5 tests for 3D API
+- `test_set_mode_to_3d`
+- `test_3d_frame_format`
+- `test_switch_back_to_2d`
+- `test_params_include_mode`
+- `test_params_include_depth`
+
+**Documentation**: See `docs/3D_IMPLEMENTATION_PLAN.md` for full details.
+
+**Status**: ✅ Backend Complete, Frontend Next
+
+---
+
 ## Quick Start
 
 ### Backend
@@ -1173,7 +1302,7 @@ npm run dev
 
 ---
 
-*Document Version: 7.0*
+*Document Version: 9.0*
 *Last Updated: January 2026*
-*Status: Optional Enhancements Complete (Obstacles + Predator Species + Boundary Fix + Hunting Improvements)*
-*Total Tests: 287 passing*
+*Status: 3D Backend & API Complete (Phases 1-4), Frontend Next*
+*Total Tests: 357 passing*
