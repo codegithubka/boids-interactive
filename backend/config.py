@@ -95,7 +95,7 @@ PARAM_DEFINITIONS: Dict[str, ParamLimit] = {
         description="How strongly boids match neighbor velocities"
     ),
     "max_speed": ParamLimit(
-        min=1.0, max=8.0, default=3.0, step=0.5,
+        min=1.0, max=8.0, default=5.0, step=0.5,
         category="advanced",
         label="Max Speed",
         description="Maximum boid speed (pixels/frame)"
