@@ -26,9 +26,11 @@ This document tracks the development of an interactive web-based Boids simulatio
 | 11 | Static Obstacles | ✅ Complete | 34 |
 | 12 | Multiple Predators | ✅ Complete | 23 |
 | 12.7 | Predator Species | ✅ Complete | 23 |
+| 12.8 | Boundary Regression Fix | ✅ Complete | 19 |
+| 12.9 | Hunting Improvements | ✅ Complete | 34 |
 | 13 | Performance Optimization | ⏳ Planned | — |
 
-**Total Backend Tests**: 234 passing
+**Total Backend Tests**: 287 passing
 **Backend Status**: ✅ Complete + Enhancements complete
 **Frontend Status**: ✅ Complete
 **Project Status**: ✅ Optional Enhancements Complete
@@ -595,6 +597,8 @@ All steps completed successfully.
 | `tests/test_flock_obstacles.py` | ✅ | 13 | Flock obstacle integration tests |
 | `tests/test_multi_predator.py` | ✅ | 23 | Multiple predator tests |
 | `tests/test_predator_strategies.py` | ✅ | 23 | Hunting strategy tests |
+| `tests/test_boundary_regression.py` | ✅ | 19 | Boundary regression tests |
+| `tests/test_hunting_improvements.py` | ✅ | 34 | Hunting improvement tests |
 
 ### Frontend (Complete ✅ — Simplified Architecture)
 
@@ -1043,6 +1047,101 @@ update_velocity_by_strategy()        # Dispatch to correct method
 
 ---
 
+### Step 12.8: Boundary Regression Fix
+
+**Problem**: After implementing predator species, boids and predators were escaping the simulation bounds.
+
+**Root Cause Analysis**:
+1. **Hunting force scaled with distance**: `steer_toward()` used `distance * hunting_strength`, creating forces up to 20.0 for distant targets
+2. **Constant boundary force too weak**: `turn_factor=0.2` was constant, creating a 100x force imbalance
+3. **No safety net**: No hard limits on positions
+
+**Diagnostic Tests Created** (19 tests in `test_boundary_regression.py`):
+- Boid boundary tests (4 tests)
+- Predator boundary tests by strategy (8 tests)
+- Force balance analysis (3 tests)
+- Long-running stress tests (2 tests)
+- Diagnostic tests (2 tests)
+
+**Fixes Implemented**:
+
+1. **Progressive boundary steering** — Force scales with distance past margin:
+   ```python
+   scale = 1.0 + (distance_into_margin / margin)
+   dvx += turn_factor * scale
+   ```
+
+2. **Hunting force capping** — `steer_toward()` now limits max force:
+   ```python
+   if magnitude > max_force:
+       scale = max_force / magnitude
+       dvx *= scale; dvy *= scale
+   ```
+
+3. **Hard position clamping** — Safety net after position updates:
+   ```python
+   boid.x = max(0, min(width, boid.x))
+   ```
+
+**Results**:
+- Force ratio: 100x → 2.5x
+- Escape counts: 1000+ → 0
+- Max escape distance: 320px → 0px
+
+**Status**: ✅ Complete
+
+---
+
+### Step 12.9: Predator Hunting Improvements
+
+**Problem**: Predators would trap boids at screen edges and circle indefinitely — unnatural and boring.
+
+**Four Improvements Implemented**:
+
+| Improvement | Constant | Description |
+|-------------|----------|-------------|
+| **Target Timeout** | `MAX_TARGET_FRAMES=180` | Force switch after 3 seconds on same target |
+| **Catch & Cooldown** | `CATCH_DISTANCE=15`, `COOLDOWN_DURATION=60` | 1 second rest after "catching" prey |
+| **Chase Failure** | `CHASE_FAILURE_FRAMES=90` | Give up if no progress for 1.5 seconds |
+| **Edge Avoidance** | `EDGE_MARGIN=100` | Prefer targets away from screen edges |
+
+---
+
+#### Implementation Details
+
+**New Predator Attributes**:
+```python
+cooldown_frames: int = 0              # Post-catch rest timer
+last_target_distance: float = inf     # For chase progress tracking
+frames_without_progress: int = 0      # Chase failure counter
+```
+
+**New Helper Methods**:
+```python
+is_in_cooldown -> bool                # Check cooldown state
+start_cooldown() -> None              # Enter rest state
+reset_target() -> None                # Clear target tracking
+check_catch(x, y) -> bool             # Within catch distance?
+check_chase_failure(dist) -> bool     # No progress?
+should_switch_target() -> bool        # Timeout reached?
+is_near_edge(x, y, w, h) -> bool      # Near screen edge?
+select_target_avoiding_edges(...)     # Smart target selection
+```
+
+**Updated Strategies**: NEAREST_HUNTER, STRAGGLER_HUNTER, PATROL_HUNTER, RANDOM_HUNTER now use all improvements.
+
+**Tests**: 34/34 passing (test_hunting_improvements.py)
+
+**Behavioral Changes**:
+- Predators now "catch" prey and rest briefly
+- Long chases are abandoned
+- Edge-trapped boids are deprioritized
+- More dynamic, natural hunting patterns
+
+**Status**: ✅ Complete
+
+---
+
 ## Quick Start
 
 ### Backend
@@ -1074,7 +1173,7 @@ npm run dev
 
 ---
 
-*Document Version: 5.0*
+*Document Version: 7.0*
 *Last Updated: January 2026*
-*Status: Optional Enhancements Complete (Obstacles + Predator Species)*
-*Total Tests: 234 passing*
+*Status: Optional Enhancements Complete (Obstacles + Predator Species + Boundary Fix + Hunting Improvements)*
+*Total Tests: 287 passing*

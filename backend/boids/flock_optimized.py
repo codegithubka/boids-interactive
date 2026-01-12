@@ -92,21 +92,32 @@ class FlockOptimized:
         """
         Compute velocity adjustment to keep boid within bounds.
         
-        Identical to Flock.apply_boundary_steering.
+        Uses progressive steering that increases with distance past margin.
         """
         dvx = 0.0
         dvy = 0.0
         
         p = self.params
         
+        # Progressive boundary steering: force increases with distance past margin
         if boid.x < p.margin:
-            dvx += p.turn_factor
+            # How far into the margin (or past edge)
+            distance_into_margin = p.margin - boid.x
+            # Scale factor: stronger when further past margin
+            scale = 1.0 + (distance_into_margin / p.margin)
+            dvx += p.turn_factor * scale
         if boid.x > p.width - p.margin:
-            dvx -= p.turn_factor
+            distance_into_margin = boid.x - (p.width - p.margin)
+            scale = 1.0 + (distance_into_margin / p.margin)
+            dvx -= p.turn_factor * scale
         if boid.y < p.margin:
-            dvy += p.turn_factor
+            distance_into_margin = p.margin - boid.y
+            scale = 1.0 + (distance_into_margin / p.margin)
+            dvy += p.turn_factor * scale
         if boid.y > p.height - p.margin:
-            dvy -= p.turn_factor
+            distance_into_margin = boid.y - (p.height - p.margin)
+            scale = 1.0 + (distance_into_margin / p.margin)
+            dvy -= p.turn_factor * scale
         
         return (dvx, dvy)
     
@@ -196,6 +207,10 @@ class FlockOptimized:
             
             boid.x += boid.vx
             boid.y += boid.vy
+            
+            # Hard position clamping as safety net
+            boid.x = max(0, min(p.width, boid.x))
+            boid.y = max(0, min(p.height, boid.y))
         
         # Update all predators
         self.update_predators()
@@ -217,7 +232,9 @@ class FlockOptimized:
             # Predator uses its strategy to hunt
             predator.update_velocity_by_strategy(
                 self.boids,
-                hunting_strength=p.predator_hunting_strength
+                hunting_strength=p.predator_hunting_strength,
+                width=p.width,
+                height=p.height
             )
             
             # Apply boundary steering
@@ -247,6 +264,10 @@ class FlockOptimized:
             
             # Update position
             predator.update_position()
+            
+            # Hard position clamping as safety net
+            predator.x = max(0, min(p.width, predator.x))
+            predator.y = max(0, min(p.height, predator.y))
     
     # =========================================================================
     # Obstacle Management Methods

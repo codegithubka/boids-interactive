@@ -118,22 +118,22 @@ class TestNearestHunter:
     """Tests for NEAREST_HUNTER (Falcon) strategy."""
 
     def test_moves_toward_nearest_boid(self):
-        """Falcon moves toward nearest boid."""
-        pred = Predator.create_at_position(0, 0, speed=0, strategy=HuntingStrategy.NEAREST_HUNTER)
+        """Falcon moves toward nearest boid (when all away from edges)."""
+        pred = Predator.create_at_position(400, 300, speed=0, strategy=HuntingStrategy.NEAREST_HUNTER)
         pred.vx = 0
         pred.vy = 0
         
-        # Nearest boid at (50, 0), flock center at (150, 100)
+        # All boids away from edges, nearest at (350, 300)
         boids = [
-            Boid(x=50, y=0, vx=0, vy=0),   # Nearest
-            Boid(x=200, y=150, vx=0, vy=0),
-            Boid(x=200, y=150, vx=0, vy=0),
+            Boid(x=350, y=300, vx=0, vy=0),   # Nearest (50px away)
+            Boid(x=500, y=400, vx=0, vy=0),   # Further
+            Boid(x=600, y=200, vx=0, vy=0),   # Furthest
         ]
         
         pred.update_velocity_by_strategy(boids, hunting_strength=0.1)
         
-        # Should move toward (50, 0), not flock center
-        assert pred.vx > 0
+        # Should move toward (350, 300) - left from (400, 300)
+        assert pred.vx < 0, "Should move left toward nearest boid"
         assert abs(pred.vy) < 0.01  # Should barely move in y
 
 
