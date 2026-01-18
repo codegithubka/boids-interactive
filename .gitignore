@@ -10,3 +10,6 @@ __pycache__/
 # Generated from package installers
 node_modules/
 dist/
+
+# Logs and databases
+*.log
