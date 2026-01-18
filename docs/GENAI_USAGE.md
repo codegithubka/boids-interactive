@@ -8,7 +8,7 @@
 
 ## Project Overview
 
-This document records the complete development journey of a Boids flocking simulation, from core algorithm implementation to an interactive web application with real-time parameter tuning. Every prompt, issue, test result, and design decision is documented for reproducibility.
+This document records the complete development process of a Boids flocking simulation, from core algorithm implementation to an interactive web application with real-time parameter tuning. Every prompt, issue, test result, and design decision is documented for reproducibility.
 
 The project consists of two major phases:
 1. **Part I: Core Algorithm** — Implementing the Boids flocking rules, KD-Tree optimization, predator-prey dynamics, and quantitative analysis
@@ -20,8 +20,8 @@ The project consists of two major phases:
 
 The implementation follows an incremental, test-driven approach:
 
-1. **Decomposition**: Break the simulation into self-contained modules (Boid class, individual rules, visualization)
-2. **Test-first mentality**: Each module includes unit tests before integration
+1. **Decomposition**: Break the simulation into self-contained modules
+2. **Test-first approach**: Each module includes unit tests before integration
 3. **Iterative refinement**: Evaluate generated code against specifications, request corrections as needed
 4. **Documentation**: Record every interaction for reproducibility
 
@@ -37,7 +37,7 @@ The implementation follows an incremental, test-driven approach:
 Each implementation prompt followed this pattern:
 - **Context**: "We are building a Boids flocking simulation..."
 - **Specific task**: Clear, bounded objective (e.g., "Implement the separation rule")
-- **Constraints**: Technical requirements (e.g., "Match Phase 1 algorithm", "Use squared distance")
+- **Constraints**: Technical requirements
 - **Quality expectations**: Edge cases, test coverage requirements
 
 ### Key Decisions Made During Development
@@ -91,8 +91,6 @@ Each implementation prompt followed this pattern:
 **Part I Tests:** 144 passing  
 **Part II Tests:** 357 passing  
 **Total Tests:** 501 passing  
-**Core Algorithm Points:** 10/10  
-**Project Status:** ✅ Production Ready
 
 ### Files Structure
 
@@ -161,15 +159,15 @@ This section documents the development of the core Boids simulation engine with 
 
 **Tests:** `test_boid.py`
 
-**Evaluation:**
-- [x] Boid instantiates with explicit position/velocity
-- [x] Boid instantiates with random values within bounds
-- [x] Attributes are accessible and modifiable
-- [x] Edge case: zero velocity handled
+**Evaluation:*
+- Boid instantiates with explicit position/velocity
+- Boid instantiates with random values within bounds
+- Attributes are accessible and modifiable
+- Edge case: zero velocity handled
 
 **Test results:** 13/13 tests passed
 
-**Issues found:** None — implementation worked on first attempt.
+**Issues found:** None.
 
 **Design decisions:**
 - Used `@dataclass` for clean, minimal boilerplate
@@ -177,13 +175,13 @@ This section documents the development of the core Boids simulation engine with 
 - Factory method `create_random()` encapsulates random initialization
 - Random velocity uses angle-based generation for uniform direction distribution
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
 ## Step 2: Separation Rule
 
-**Goal:** Implement the separation behavior — boids steer away from neighbors within protected range.
+**Goal:** Implement the separation behavior; boids steer away from neighbors within protected range.
 
 **Constraints:**
 - Match the algorithm from specification
@@ -205,14 +203,14 @@ This section documents the development of the core Boids simulation engine with 
 - Diagonal neighbor → both x and y components
 
 **Evaluation:**
-- [x] Matches specification algorithm exactly
-- [x] Uses squared distance to avoid unnecessary sqrt
-- [x] Accumulates displacement vectors from all intruders
-- [x] Applies strength factor correctly
+- Matches specification algorithm exactly
+- Uses squared distance to avoid unnecessary sqrt
+- Accumulates displacement vectors from all intruders
+- Applies strength factor correctly
 
 **Test results:** 8/8 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -237,13 +235,13 @@ This section documents the development of the core Boids simulation engine with 
 - Opposing velocities → average to zero
 
 **Evaluation:**
-- [x] Correctly excludes boids in protected range
-- [x] Computes average velocity of valid neighbors
-- [x] Applies matching factor as (avg - current) * factor
+- Correctly excludes boids in protected range
+- Computes average velocity of valid neighbors
+- Applies matching factor as (avg - current) * factor
 
 **Test results:** 7/7 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -266,9 +264,9 @@ This section documents the development of the core Boids simulation engine with 
 - Equilateral triangle → boid at centroid has zero net force
 
 **Evaluation:**
-- [x] Correctly computes center of mass
-- [x] Steering is (center - position) * factor
-- [x] Symmetric arrangements produce balanced forces
+- Correctly computes center of mass
+- Steering is (center - position) * factor
+- Symmetric arrangements produce balanced forces
 
 **Test results:** 6/6 passed
 
@@ -276,7 +274,7 @@ This section documents the development of the core Boids simulation engine with 
 
 **Total for Steps 2-4:** 23/23 tests passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -301,7 +299,7 @@ This section documents the development of the core Boids simulation engine with 
 
 **Test results:** See Step 8 summary
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -323,13 +321,13 @@ This section documents the development of the core Boids simulation engine with 
 - Turn factor magnitude
 
 **Evaluation:**
-- [x] Correct coordinate system (y increases downward)
-- [x] Independent handling of each margin
-- [x] Steering direction pushes boid toward center
+- Correct coordinate system (y increases downward)
+- Independent handling of each margin
+- Steering direction pushes boid toward center
 
 **Test results:** 7/7 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -351,12 +349,12 @@ This section documents the development of the core Boids simulation engine with 
 - Zero speed handled (random direction at min_speed)
 
 **Evaluation:**
-- [x] Direction preservation via unit vector scaling
-- [x] Zero speed edge case handled with random direction
+- Direction preservation via unit vector scaling
+- Zero speed edge case handled with random direction
 
 **Test results:** 5/5 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -380,7 +378,7 @@ This section documents the development of the core Boids simulation engine with 
 
 **Cumulative test count:** 58/58 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -417,7 +415,7 @@ This section documents the development of the core Boids simulation engine with 
 
 **Note:** Full visual testing requires running on a system with display. Headless mode verified programmatically.
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -505,7 +503,7 @@ This section documents the development of the core Boids simulation engine with 
 - ✗ Jittery motion when boids get very close (touching)
 - ✗ Flock separates at abrupt turns (potential visual_range / alignment issue)
 
-**User feedback:** "After 30 seconds or so the boids form a flock. The motions seems to be a bit jittery as they get very close to each other and touch a little. This probably implies the protected range rules need to be a bit stricter. Correct me if I'm am wrong. Also, the flock separated at an abrupt term. Is that to be expected in terms of emergent behavior?"
+**User feedback:** "After 30 seconds or so the boids form a flock. The motions seems to be a bit jittery as they get very close to each other and get within each other's protected range. This probably implies the protected range rules need to be a bit stricter. Also, the flock separated at an abrupt term. Is that to be expected in terms of emergent behavior?"
 
 **Analysis:**
 1. **Jittery motion / touching:** `protected_range=8` triggers separation too late; `separation_strength=0.1` insufficient to overcome momentum when boids are already close.
@@ -544,7 +542,7 @@ This section documents the development of the core Boids simulation engine with 
 
 **Test results:** 58/58 passed (with updated test file)
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -560,7 +558,7 @@ This section documents the development of the core Boids simulation engine with 
 - [x] Zero velocity — handled with random direction at min_speed
 - [x] Speed clamping — preserves direction
 
-**Status:** ✅ Complete (covered by existing 58 tests)
+**Status:** Complete (covered by existing 58 tests)
 
 ---
 
@@ -578,7 +576,7 @@ This section documents the development of the core Boids simulation engine with 
 
 **User confirmation:** "The behavior is satisfactory and seems natural."
 
-**Status:** ✅ Complete
+**Status:**  Complete
 
 ---
 
@@ -604,7 +602,7 @@ This section documents the development of the core Boids simulation engine with 
 
 ---
 
-## Core Assignment Complete (6/10 Points)
+## Core Assignment Complete
 
 All Phase 1-3 requirements satisfied:
 - Phase 1: Conceptual understanding documented in LaTeX
@@ -615,7 +613,7 @@ All Phase 1-3 requirements satisfied:
 
 ---
 
-## Tier 1: KDTree Optimization (+2 points)
+## Tier 1: KDTree Optimization
 
 **Goal:** Replace O(n²) naive neighbor-finding with spatial indexing for performance.
 
@@ -733,11 +731,11 @@ boids/
 └── benchmark.py          # Performance visualization script
 ```
 
-**Tier 1 Status:** ✅ Complete (+2 points)
+**Tier 1 Status:** Complete
 
 ---
 
-## Tier 2: Predator Avoidance (+1 point)
+## Tier 2: Predator Avoidance
 
 **Goal:** Introduce antagonistic agent that disrupts flocking behavior.
 
@@ -792,7 +790,7 @@ boids/
 
 **Tests:** 27/27 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -818,7 +816,7 @@ dvx = (dx / distance) * avoidance_strength * scale * detection_range
 
 **Tests:** 11 additional tests (38/38 total in test_predator.py)
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -833,7 +831,7 @@ dvx = (dx / distance) * avoidance_strength * scale * detection_range
 | `predator_speed` | 2.5 | Slightly slower than boids (3.0) |
 | `predator_hunting_strength` | 0.05 | How aggressively predator tracks flock |
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -852,7 +850,7 @@ dvx = (dx / distance) * avoidance_strength * scale * detection_range
 
 **Tests:** All existing tests still pass (109/109)
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -869,7 +867,7 @@ dvx = (dx / distance) * avoidance_strength * scale * detection_range
 - Yellow outline for emphasis
 - Status text shows "Predator: ON/OFF"
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -885,7 +883,7 @@ python main.py 50 --predator  # Start with predator enabled
 python visualization.py 100 --predator --naive  # Naive mode with predator
 ```
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -901,11 +899,11 @@ python visualization.py 100 --predator --naive  # Naive mode with predator
 
 **User feedback:** "This looks pretty good for now. Behavior is as expected."
 
-**Tier 2 Status:** ✅ Complete (+1 point)
+**Tier 2 Status:** Complete
 
 ---
 
-## Tier 3: Quantitative Analysis (+1 point)
+## Tier 3: Quantitative Analysis
 
 **Goal:** Systematic measurement of predator-prey dynamics.
 
@@ -979,7 +977,7 @@ python visualization.py 100 --predator --naive  # Naive mode with predator
 
 **Tests:** 26/26 passed (test_metrics.py)
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1008,7 +1006,7 @@ python visualization.py 100 --predator --naive  # Naive mode with predator
 
 **Tests:** 9/9 passed (test_analysis.py)
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1025,7 +1023,7 @@ python visualization.py 100 --predator --naive  # Naive mode with predator
 - Proper axis labels and colorbar
 - Combined 3-panel figure
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1064,7 +1062,7 @@ python visualization.py 100 --predator --naive  # Naive mode with predator
 
 **Figure generated:** `parameter_sweep_results.png`
 
-**Tier 3 Status:** ✅ Complete (+1 point)
+**Tier 3 Status:** Complete
 
 ---
 
@@ -1074,14 +1072,12 @@ python visualization.py 100 --predator --naive  # Naive mode with predator
 
 | Component | Status | Tests |
 |-----------|--------|-------|
-| Core simulation | ✅ Complete | 58 |
-| KDTree optimization (Tier 1) | ✅ Complete | 13 |
-| Predator avoidance (Tier 2) | ✅ Complete | 38 |
-| Quantitative analysis (Tier 3) | ✅ Complete | 35 |
+| Core simulation | Complete | 58 |
+| KDTree optimization (Tier 1) | Complete | 13 |
+| Predator avoidance (Tier 2) | Complete | 38 |
+| Quantitative analysis (Tier 3) | Complete | 35 |
 
 **Total Part I Tests:** 144/144 passing  
-**Points earned:** 6 + 2 + 1 + 1 = **10/10 points**
-
 ---
 
 # Part II: Interactive Web Application
@@ -1091,8 +1087,6 @@ This section documents the development of the real-time web interface built on t
 ---
 
 ## Step 1: Project Structure Setup
-
-**Date:** January 2026
 
 **Prompt:** "Create the project directory structure for an interactive boids demo with FastAPI backend and React frontend. Include GENAI_USAGE.md to track development."
 
@@ -1128,7 +1122,7 @@ boids-interactive/
 | `backend/boids/__init__.py` | 28 | Package exports |
 | `GENAI_USAGE.md` | — | This documentation |
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1155,7 +1149,7 @@ pytest-asyncio>=0.21.0
 httpx>=0.25.0
 ```
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1190,7 +1184,7 @@ httpx>=0.25.0
 
 **Tests:** 35/35 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1226,7 +1220,7 @@ class FrameMessage(BaseModel):
 
 **Tests:** 36/36 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1258,7 +1252,7 @@ async def _frame_loop(self):
 
 **Tests:** 33/33 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1282,7 +1276,7 @@ async def _frame_loop(self):
 
 **Tests:** 22/22 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1314,7 +1308,7 @@ async def _frame_loop(self):
 
 **Tests:** 15/15 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1332,7 +1326,7 @@ async def _frame_loop(self):
 - WebSocket connection failed initially (CORS)
 - Fixed by ensuring backend allows all origins in development
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1344,7 +1338,7 @@ async def _frame_loop(self):
 
 **Solution:** Added handshake - server waits for client "ready" message before starting frame loop.
 
-**Status:** ✅ Resolved
+**Status:** Resolved
 
 ---
 
@@ -1364,7 +1358,7 @@ async def _frame_loop(self):
 - Dark background (#1a1a2e)
 - FPS counter display
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1386,7 +1380,7 @@ async def _frame_loop(self):
 
 **Tests:** 34/34 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1439,7 +1433,7 @@ def select_target(self, boids: List[Boid]) -> Optional[Tuple[float, float]]:
 
 **Tests:** 23/23 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1453,7 +1447,7 @@ def select_target(self, boids: List[Boid]) -> Optional[Tuple[float, float]]:
 
 **Tests:** 19/19 passed for boundary behavior
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1469,7 +1463,7 @@ def select_target(self, boids: List[Boid]) -> Optional[Tuple[float, float]]:
 
 **Tests:** 34/34 passed
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1482,7 +1476,7 @@ def select_target(self, boids: List[Boid]) -> Optional[Tuple[float, float]]:
 - Added `min_speed` to `SimulationConfig`
 - Range: 0.0 to 3.0
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1557,7 +1551,7 @@ docker compose down
 | Local development | ~60 |
 | Docker | ~48 |
 
-**Status:** ✅ Complete
+**Status:** Complete
 
 ---
 
@@ -1612,36 +1606,6 @@ docker compose down
 | TypeScript unused variable | Docker build | Removed variable |
 | Hardcoded WebSocket URL | Docker testing | Dynamic URL detection |
 
-## Did Understanding the Algorithm Help?
-
-**Yes, significantly:**
-- Specification document provided clear reference
-- Protected range exclusion was correctly implemented because documented
-- Understanding O(n²) vs O(n log n) guided optimization design
-- Knowing expected behaviors made parameter tuning systematic
-- Understanding hunting strategies led to better predator AI
-
-## What Would Be Done Differently?
-
-1. Start with more conservative parameter values
-2. Add visual debugging earlier (draw range circles, velocity vectors)
-3. Consider parallel update semantics from the beginning
-4. Plan metrics collection infrastructure earlier
-5. Set up Docker earlier for consistent testing environments
-6. Define WebSocket protocol more formally upfront
-
-## Lessons Learned
-
-1. **Test-driven development is essential** — 501 tests caught numerous issues
-2. **Incremental implementation works** — Building step by step made debugging manageable
-3. **Visual validation complements unit tests** — Some behaviors can only be assessed visually
-4. **Parameter tuning is iterative** — No formula predicts good parameters
-5. **Documentation as you go** — Keeping this file updated made final documentation trivial
-6. **Edge cases matter** — Empty flocks, zero distances, boundaries needed explicit handling
-7. **WebSocket adds complexity** — Real-time streaming requires careful lifecycle management
-8. **Docker simplifies deployment** — Worth the initial setup investment
-9. **User feedback is invaluable** — "Jittery motion" observation led to parameter fixes
-
 ---
 
 # Statistics
@@ -1659,28 +1623,6 @@ docker compose down
 | Figures generated | 2 |
 | Parameter sweep runs | 125 |
 | Parameter tuning iterations | 4 |
-
----
-
-# Final Status
-
-## Core Algorithm: 10/10 Points ✅
-
-- [x] Core assignment (6 pts): Boid simulation with separation, alignment, cohesion
-- [x] Tier 1 (+2 pts): KDTree optimization (12× speedup at 500 boids)
-- [x] Tier 2 (+1 pt): Predator avoidance with flock tracking
-- [x] Tier 3 (+1 pt): Quantitative analysis with parameter sweep
-
-## Interactive Demo: Production Ready ✅
-
-- [x] FastAPI WebSocket server streaming at 60 FPS
-- [x] React frontend with live parameter controls
-- [x] Multiple predators with 5 hunting strategies
-- [x] Static obstacle support
-- [x] 7 behavior presets
-- [x] Docker containerization
-- [x] Comprehensive documentation
-
 ---
 
 *Document Version: 12.0*  
