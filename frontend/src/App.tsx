@@ -10,7 +10,19 @@
 import { useState, useRef, useCallback } from 'react';
 import './App.css';
 
-const WS_URL = 'ws://localhost:8000/ws';
+// WebSocket URL - supports both development and Docker
+const getWebSocketUrl = (): string => {
+  if (import.meta.env.VITE_WS_URL) {
+    const wsUrl = import.meta.env.VITE_WS_URL as string;
+    if (wsUrl.startsWith('/')) {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${window.location.host}${wsUrl}`;
+    }
+    return wsUrl;
+  }
+  return 'ws://localhost:8000/ws';
+};
+const WS_URL = getWebSocketUrl();
 
 interface PredatorData {
   x: number;
@@ -105,7 +117,7 @@ const TRAIL_LENGTH = 8;
 
 function App() {
   const [status, setStatus] = useState('disconnected');
-  const [frameData, setFrameData] = useState<FrameData | null>(null);
+  const [_frameData, setFrameData] = useState<FrameData | null>(null);
   const [params, setParams] = useState<Params | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [showTrails, setShowTrails] = useState(true);
