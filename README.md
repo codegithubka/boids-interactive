@@ -1,4 +1,4 @@
-# 🐦 Boids Interactive Demo
+# Boids Interactive Demo
 
 A real-time, interactive flocking simulation implementing Craig Reynolds' Boids algorithm. Features a high-performance Python backend streaming simulation frames via WebSocket to a responsive React frontend.
 
@@ -10,7 +10,7 @@ A real-time, interactive flocking simulation implementing Craig Reynolds' Boids 
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Features](#features)
@@ -38,32 +38,31 @@ The **Boids algorithm**, created by Craig Reynolds in 1986, simulates the flocki
 2. **Alignment**: Steer towards the average heading of nearby flockmates  
 3. **Cohesion**: Steer towards the average position of nearby flockmates
 
-This project extends the classic algorithm with predator-prey dynamics, obstacle avoidance, and real-time parameter tuning—all visualized in a smooth, interactive web interface.
+This project extends the classic algorithm with predator-prey dynamics, obstacle avoidance, and real-time parameter tuning visualized in an nteractive web interface.
 
 ---
 
 ## Features
 
 ### Core Simulation
-- ⚡ **60 FPS WebSocket streaming** — Real-time frame delivery
-- 🔧 **Live parameter tuning** — Adjust all behavior parameters instantly
-- 🎯 **KD-Tree optimization** — O(n log n) neighbor queries for smooth performance
-- 📊 **Real-time metrics** — FPS counter, boid count, distance tracking
+- **60 FPS WebSocket streaming** — Real-time frame delivery
+- **Live parameter tuning** — Adjust all behavior parameters instantly
+- **KD-Tree optimization** — O(n log n) neighbor queries for smooth performance
+- **Real-time metrics** — FPS counter, boid count, distance tracking
 
 ### Predator-Prey Dynamics
-- 🦅 **Multiple predators** — Up to 5 simultaneous predators
-- 🎭 **Hunting strategies** — 5 unique AI behaviors per predator species
-- 🛡️ **Emergent defense** — Watch flocks naturally evade and regroup
+- **Multiple predators** — Up to 5 simultaneous predators
+- **Hunting strategies** — 5 unique AI behaviors per predator species
+- **Emergent defense** — Watch flocks naturally evade and regroup
 
 ### Visual & Interactive
-- 🎨 **Strategy-colored predators** — Each hunting style has a distinct color
-- 🚧 **Static obstacles** — Add circular barriers boids navigate around
-- 🎬 **Preset behaviors** — One-click loading of interesting configurations
-- ⏯️ **Playback controls** — Pause, resume, and reset simulation
+- **Strategy-colored predators** — Each hunting style has a distinct color
+- **Static obstacles** — Add circular barriers boids navigate around
+- **Preset behaviors** — One-click loading of interesting configurations
+- **Playback controls** — Pause, resume, and reset simulation
 
 ### Deployment
-- 🐳 **Docker ready** — Single command deployment
-- 📱 **Responsive design** — Works on desktop and tablet
+- **Docker ready** — Single command deployment
 
 ---
 
@@ -210,11 +209,11 @@ When multiple predators are enabled, each uses a unique hunting strategy:
 
 | Strategy | Color | Behavior |
 |----------|-------|----------|
-| 🔴 **Hawk** | Red | Targets flock center mass |
-| 🟠 **Falcon** | Orange | Chases nearest boid |
-| 🟡 **Eagle** | Yellow | Hunts stragglers at edges |
-| 🟢 **Kite** | Green | Patrols in circular patterns |
-| 🔵 **Osprey** | Blue | Randomly switches targets |
+| **Hawk** | Red | Targets flock center mass |
+| **Falcon** | Orange | Chases nearest boid |
+| **Eagle** | Yellow | Hunts stragglers at edges |
+| **Kite** | Green | Patrols in circular patterns |
+| **Osprey** | Blue | Randomly switches targets |
 
 ---
 
@@ -420,52 +419,6 @@ target_fps: int          # 60
 
 ---
 
-## Analysis Tools
-
-Three standalone scripts for deeper analysis (run from `backend/` directory):
-
-### Benchmark (`benchmark.py`)
-
-Compares naive O(n²) vs KD-Tree O(n log n) implementations:
-
-```bash
-cd backend
-python benchmark.py
-```
-
-**Output:** `benchmark_results.png` — Performance comparison chart
-
-### Parameter Sweep (`analysis.py`)
-
-Systematic exploration of predator-prey dynamics:
-
-```bash
-cd backend
-python analysis.py
-```
-
-**Output:** `parameter_sweep_results.png` — Heatmaps showing:
-- Average distance to predator
-- Minimum distance to predator  
-- Flock cohesion
-
-### Pygame Visualization (`visualization.py`)
-
-Standalone visualization (no web server needed):
-
-```bash
-cd backend
-pip install pygame
-python visualization.py 100 --predator
-```
-
-**Controls:**
-- `ESC` — Quit
-- `R` — Reset
-- `P` — Toggle predator
-
----
-
 ## Testing
 
 Run the complete test suite:
@@ -519,10 +472,10 @@ pytest tests/ --cov=. --cov-report=html
 
 | Metric | Target | Achieved |
 |--------|--------|----------|
-| Frame Rate | 60 FPS | ✅ 60 FPS (local) |
-| Docker | 30+ FPS | ✅ ~48 FPS |
-| Max Boids | 200 | ✅ 200 @ 60 FPS |
-| Latency | <20ms | ✅ ~16ms |
+| Frame Rate | 60 FPS | 60 FPS (local) |
+| Docker | 30+ FPS | ~48 FPS |
+| Max Boids | 200 |  200 @ 60 FPS |
+| Latency | <20ms |  ~16ms |
 
 ### Optimization Techniques
 
@@ -530,37 +483,6 @@ pytest tests/ --cov=. --cov-report=html
 - **Vectorized NumPy operations** — Batch position/velocity updates
 - **Instance reuse** — Minimize object allocation
 - **Efficient serialization** — Compact frame format
-
----
-
-## Technology Stack
-
-### Backend
-| Technology | Purpose |
-|------------|---------|
-| **Python 3.10+** | Runtime |
-| **FastAPI** | Async web framework |
-| **uvicorn** | ASGI server |
-| **Pydantic** | Data validation |
-| **NumPy** | Numerical computing |
-| **SciPy** | KD-Tree implementation |
-| **pytest** | Testing framework |
-
-### Frontend
-| Technology | Purpose |
-|------------|---------|
-| **React 19** | UI framework |
-| **TypeScript** | Type safety |
-| **Vite** | Build tool |
-| **HTML5 Canvas** | 2D rendering |
-
-### DevOps
-| Technology | Purpose |
-|------------|---------|
-| **Docker** | Containerization |
-| **Docker Compose** | Multi-container orchestration |
-| **Nginx** | Reverse proxy, static serving |
-
 ---
 
 ## Development
@@ -635,12 +557,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 - **Craig Reynolds** — Original Boids algorithm (1986)
   - [Original Paper](https://www.red3d.com/cwr/boids/)
   - [Wikipedia: Boids](https://en.wikipedia.org/wiki/Boids)
-
-- **Inspiration**
-  - [Coding Train — Flocking Simulation](https://thecodingtrain.com/challenges/124-flocking-simulation)
-  - [Sebastian Lague — Boids](https://www.youtube.com/watch?v=bqtqltqcQhw)
-
----
 
 <p align="center">
   Made with ❤️ and emergent behavior
