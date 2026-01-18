@@ -557,7 +557,3 @@ MIT License — see [LICENSE](LICENSE) for details.
 - **Craig Reynolds** — Original Boids algorithm (1986)
   - [Original Paper](https://www.red3d.com/cwr/boids/)
   - [Wikipedia: Boids](https://en.wikipedia.org/wiki/Boids)
-
-<p align="center">
-  Made with ❤️ and emergent behavior
-</p>
