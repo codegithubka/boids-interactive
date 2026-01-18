@@ -483,6 +483,34 @@ pytest tests/ --cov=. --cov-report=html
 - **Vectorized NumPy operations** — Batch position/velocity updates
 - **Instance reuse** — Minimize object allocation
 - **Efficient serialization** — Compact frame format
+
+---
+
+## Display Recommendations
+
+For the best experience:
+
+| Setting | Recommendation |
+|---------|----------------|
+| **Browser Window** | Square or near-square aspect ratio (800×600 to 1000×800 px) |
+| **Full Screen** | Not recommended on wide monitors — may cause layout issues |
+| **Zoom Level** | 100% browser zoom for correct sizing |
+
+The simulation canvas is optimized for a fixed 800×600 internal resolution. Resize your browser window to approximately square proportions for optimal display.
+
+---
+
+## Known Limitations
+
+Current implementation limitations (targeted for future releases):
+
+| Limitation | Description | Planned Fix |
+|------------|-------------|-------------|
+| **Small obstacle avoidance** | Obstacles with radius <20px may not trigger strong enough avoidance; boids can clip through at high speeds | Increase avoidance strength scaling for small obstacles |
+| **Docker frame rate** | Achieves ~48-50 FPS vs ~60 FPS local | Container optimization planned |
+| **Predator selection** | Predators added by count (1-5) with auto-assigned strategies; cannot select specific strategies (e.g., "5 Hawks") | Individual predator configuration UI |
+| **Fixed canvas size** | Internal 800×600 resolution doesn't adapt to window size | Responsive canvas scaling |
+
 ---
 
 ## Development
