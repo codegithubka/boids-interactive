@@ -8,6 +8,8 @@ A real-time, interactive flocking simulation implementing Craig Reynolds' Boids 
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)
 ![Tests](https://img.shields.io/badge/Tests-357%20passing-brightgreen.svg)
 
+[Demo Screenshot](docs/images/simulation_screenshot.png)
+
 ---
 
 ## Table of Contents
